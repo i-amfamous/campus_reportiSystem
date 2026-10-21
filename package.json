@@ -1,0 +1,57 @@
+{
+  "name": "campus-resolve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Campus Resolve — Student Academic Issue Reporting and Resolution System",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @campus-resolve/shared && npm run build --workspace @campus-resolve/api && npm run build --workspace @campus-resolve/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json,css}\"",
+    "dev": "npm run dev --workspace @campus-resolve/api & npm run dev --workspace @campus-resolve/web",
+    "dev:api": "npm run dev --workspace @campus-resolve/api",
+    "dev:web": "npm run dev --workspace @campus-resolve/web",
+    "dev:worker": "npm run worker --workspace @campus-resolve/api",
+    "prisma:generate": "npm run prisma:generate --workspace @campus-resolve/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace @campus-resolve/api",
+    "prisma:deploy": "npm run prisma:deploy --workspace @campus-resolve/api",
+    "prisma:studio": "npm run prisma:studio --workspace @campus-resolve/api",
+    "seed": "npm run seed --workspace @campus-resolve/api",
+    "seed:prod": "npm run seed:prod --workspace @campus-resolve/api",
+    "db:start": "node scripts/local-postgres.mjs start",
+    "db:stop": "node scripts/local-postgres.mjs stop",
+    "db:status": "node scripts/local-postgres.mjs status",
+    "test": "npm run test --workspace @campus-resolve/api && npm run test --workspace @campus-resolve/web",
+    "test:api": "npm run test --workspace @campus-resolve/api",
+    "test:web": "npm run test --workspace @campus-resolve/web",
+    "test:e2e": "npm run test:e2e --workspace @campus-resolve/web",
+    "verify": "npm run lint && npm run typecheck && npm run test:api && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true,
+    "prisma@6.19.3": true,
+    "@embedded-postgres/darwin-x64@18.4.0-beta.17": true
+  }
+}

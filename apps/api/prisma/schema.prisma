@@ -1,0 +1,675 @@
+// Campus Resolve — PostgreSQL data model (PRD §17)
+//
+// Conventions:
+//  * Table/column names are snake_case (map to Prisma @@map/@map).
+//  * Every timestamp is stored in UTC.
+//  * Files are referenced by a private storage key only; never a public URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum TicketStatus {
+  SUBMITTED
+  AWAITING_ASSIGNMENT
+  ASSIGNED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  AWAITING_STUDENT
+  AWAITING_EXTERNAL
+  ESCALATED
+  RESOLVED
+  CLOSED
+  REOPENED
+  WITHDRAWN
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketSource {
+  STUDENT
+  TRIAGE
+  STAFF
+}
+
+enum MessageVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+enum NotificationChannel {
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum NotificationType {
+  EMAIL_VERIFICATION
+  REGISTRATION_CONFIRMED
+  PASSWORD_RESET
+  STAFF_INVITATION
+  ACCOUNT_SUSPENDED
+  TICKET_SUBMITTED
+  TICKET_ACKNOWLEDGED
+  TICKET_ASSIGNED
+  TICKET_REASSIGNED
+  TICKET_STATUS_CHANGED
+  TICKET_INFO_REQUESTED
+  TICKET_REPLY
+  TICKET_ESCALATED
+  TICKET_RESOLVED
+  TICKET_REOPENED
+  TICKET_CLOSED
+  TICKET_WITHDRAWN
+  FEEDBACK_REQUESTED
+  STAFF_TICKET_ASSIGNED
+  STAFF_TICKET_REASSIGNED
+  STAFF_TICKET_REPLIED
+  STAFF_TICKET_ESCALATED
+  STAFF_TICKET_QUEUED
+  STAFF_REMINDER_DUE
+  STAFF_SLA_WARNING
+  STAFF_SLA_BREACHED
+  SYSTEM_ADMIN_ALERT
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum JobType {
+  TICKET_REMINDER
+  SLA_FIRST_RESPONSE
+  SLA_RESOLUTION
+  ESCALATION
+  NOTIFICATION_DELIVERY
+}
+
+enum ReminderKind {
+  UNTOUCHED
+  NEXT_ACTION
+}
+
+enum DepartmentRole {
+  OFFICER
+  HEAD
+}
+
+enum HistoryAction {
+  CREATED
+  STATUS_CHANGED
+  ASSIGNED
+  REASSIGNED
+  PRIORITY_CHANGED
+  ESCALATED
+  RESOLVED
+  REOPENED
+  CLOSED
+  WITHDRAWN
+  MESSAGE_ADDED
+  NOTE_ADDED
+  ATTACHMENT_ADDED
+  FEEDBACK_ADDED
+  INFORMATION_REQUESTED
+  REMINDER_SENT
+  SLA_BREACHED
+  TRANSFERRED
+}
+
+// ---------------------------------------------------------------------------
+// Identity & access
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String        @id @default(uuid()) @db.Uuid
+  fullName        String        @db.VarChar(120)
+  email           String        @unique @db.VarChar(254)
+  studentId       String?       @unique @db.VarChar(32)
+  passwordHash    String?       @db.VarChar(255)
+  emailVerifiedAt DateTime?
+  accountStatus   AccountStatus @default(PENDING_VERIFICATION)
+  phone           String?       @db.VarChar(32)
+  preferredContactMethod String? @db.VarChar(16)
+  failedLoginCount Int          @default(0)
+  lockedUntil     DateTime?
+  lastLoginAt     DateTime?
+  invitedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  roles           UserRole[]
+  memberships     DepartmentMembership[]
+  sessions        Session[]
+  tickets         Ticket[]       @relation("TicketStudent")
+  assignedTickets Ticket[]       @relation("TicketAssignee")
+  messages        TicketMessage[]
+  attachments     TicketAttachment[]
+  historyEntries  TicketHistory[]
+  notifications   Notification[]
+  feedback        StudentFeedback[]
+  auditLogs       AuditLog[]
+  verificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([accountStatus])
+  @@index([fullName])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(32)
+  description String?  @db.VarChar(255)
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users          UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(64)
+  description String?  @db.VarChar(255)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  grantedById String? @db.Uuid
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  tokenHash    String    @unique @db.VarChar(128)
+  csrfTokenHash String   @db.VarChar(128)
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  lastUsedAt   DateTime?
+  ipAddress    String?   @db.VarChar(64)
+  userAgent    String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(128)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(128)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Organisation
+// ---------------------------------------------------------------------------
+
+model Department {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @unique @db.VarChar(120)
+  code           String?  @unique @db.VarChar(24)
+  description    String?  @db.Text
+  contactEmail   String?  @db.VarChar(254)
+  isActive       Boolean  @default(true)
+  isFallbackQueue Boolean @default(false)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  memberships     DepartmentMembership[]
+  categories      Category[]
+  tickets         Ticket[]
+  serviceTarget   DepartmentServiceTarget?
+  businessHours   DepartmentBusinessHour[]
+  holidays        DepartmentHoliday[]
+
+  @@index([isActive])
+  @@map("departments")
+}
+
+model DepartmentMembership {
+  id            String         @id @default(uuid()) @db.Uuid
+  departmentId  String         @db.Uuid
+  userId        String         @db.Uuid
+  departmentRole DepartmentRole @default(OFFICER)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, userId])
+  @@index([userId])
+  @@map("department_memberships")
+}
+
+model DepartmentServiceTarget {
+  id                      String   @id @default(uuid()) @db.Uuid
+  departmentId            String   @unique @db.Uuid
+  firstResponseMinutes    Int      @default(480)
+  resolutionMinutes       Int      @default(4320)
+  reminderIntervalMinutes Int      @default(120)
+  maxReminders            Int      @default(8)
+  escalationAfterReminders Int     @default(3)
+  businessHoursOnly       Boolean  @default(false)
+  escalationUserId        String?  @db.Uuid
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@map("department_service_targets")
+}
+
+model DepartmentBusinessHour {
+  id           String   @id @default(uuid()) @db.Uuid
+  departmentId String   @db.Uuid
+  dayOfWeek    Int
+  startMinute  Int
+  endMinute    Int
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, dayOfWeek, startMinute])
+  @@map("department_business_hours")
+}
+
+model DepartmentHoliday {
+  id           String   @id @default(uuid()) @db.Uuid
+  departmentId String   @db.Uuid
+  holidayDate  DateTime @db.Date
+  name         String   @db.VarChar(120)
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, holidayDate])
+  @@map("department_holidays")
+}
+
+model Category {
+  id              String         @id @default(uuid()) @db.Uuid
+  name            String         @unique @db.VarChar(120)
+  description     String?        @db.Text
+  departmentId    String?        @db.Uuid
+  defaultPriority TicketPriority @default(NORMAL)
+  isActive        Boolean        @default(true)
+  isSensitive     Boolean        @default(false)
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  tickets    Ticket[]
+
+  @@index([isActive])
+  @@map("categories")
+}
+
+// ---------------------------------------------------------------------------
+// Tickets
+// ---------------------------------------------------------------------------
+
+model Ticket {
+  id             String         @id @default(uuid()) @db.Uuid
+  referenceNumber String        @unique @db.VarChar(20)
+  studentId      String         @db.Uuid
+  categoryId     String         @db.Uuid
+  departmentId   String         @db.Uuid
+  assignedToId   String?        @db.Uuid
+  subject        String         @db.VarChar(180)
+  description    String         @db.Text
+  status         TicketStatus   @default(SUBMITTED)
+  priority       TicketPriority @default(NORMAL)
+  source         TicketSource   @default(STUDENT)
+
+  courseCode        String? @db.VarChar(32)
+  courseTitle       String? @db.VarChar(160)
+  semester          String? @db.VarChar(64)
+  assessmentReference String? @db.VarChar(64)
+  transactionReference String? @db.VarChar(64)
+  preferredContactMethod String? @db.VarChar(16)
+  contactPhone      String? @db.VarChar(32)
+
+  // Service target tracking
+  firstResponseAt  DateTime?
+  firstResponseDueAt DateTime?
+  resolutionDueAt  DateTime?
+  firstResponseOverdue Boolean @default(false)
+  resolutionOverdue Boolean @default(false)
+
+  // Reminder cycle tracking (PRD §9.3)
+  lastMeaningfulStaffActionAt DateTime?
+  reminderCycleStartedAt      DateTime?
+  nextReminderAt              DateTime?
+  lastReminderSentAt          DateTime?
+  remindersSentInCycle        Int      @default(0)
+  reminderKind                ReminderKind?
+
+  assignedAt   DateTime?
+  escalatedAt  DateTime?
+  escalationLevel Int      @default(0)
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  confirmedAt  DateTime?
+  withdrawnAt  DateTime?
+  resolutionSummary String?  @db.Text
+  reopenedCount Int      @default(0)
+  lastStudentReplyAt DateTime?
+  lastStaffReplyAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student      User      @relation("TicketStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  assignedTo   User?     @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
+  history     TicketHistory[]
+  notifications Notification[]
+  escalations EscalationEvent[]
+  feedback    StudentFeedback?
+  occurrences ReminderOccurrence[]
+
+  @@index([studentId])
+  @@index([departmentId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([nextReminderAt])
+  @@index([createdAt])
+  @@index([categoryId])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String            @id @default(uuid()) @db.Uuid
+  ticketId   String            @db.Uuid
+  senderId   String            @db.Uuid
+  messageBody String           @db.Text
+  visibility MessageVisibility @default(PUBLIC)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User   @relation(fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, visibility])
+  @@map("ticket_messages")
+}
+
+model TicketAttachment {
+  id               String   @id @default(uuid()) @db.Uuid
+  ticketId         String   @db.Uuid
+  uploadedById     String   @db.Uuid
+  storageKey       String   @unique @db.VarChar(255)
+  originalFilename String   @db.VarChar(255)
+  mimeType         String   @db.VarChar(120)
+  fileSize         Int
+  checksum         String?  @db.VarChar(64)
+  createdAt        DateTime @default(now())
+
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy User   @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([ticketId])
+  @@map("ticket_attachments")
+}
+
+model TicketHistory {
+  id            String        @id @default(uuid()) @db.Uuid
+  ticketId      String        @db.Uuid
+  actorId       String?       @db.Uuid
+  actionType    HistoryAction
+  previousValue String?       @db.VarChar(255)
+  newValue      String?       @db.VarChar(255)
+  reason        String?       @db.Text
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_history")
+}
+
+model EscalationEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @db.Uuid
+  level      Int
+  reason     String   @db.Text
+  source     String   @db.VarChar(16)
+  fromUserId String?  @db.Uuid
+  toUserId   String?  @db.Uuid
+  notifiedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("escalation_events")
+}
+
+model StudentFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @unique @db.Uuid
+  studentId String   @db.Uuid
+  rating    Int
+  comment   String?  @db.VarChar(2000)
+  createdAt DateTime @default(now())
+
+  ticket  Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_feedback")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications & background work
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id                String             @id @default(uuid()) @db.Uuid
+  recipientId       String             @db.Uuid
+  ticketId          String?            @db.Uuid
+  type              NotificationType
+  channel           NotificationChannel @default(EMAIL)
+  status            NotificationStatus @default(PENDING)
+  idempotencyKey    String             @unique @db.VarChar(255)
+  attemptCount      Int                @default(0)
+  lastAttemptAt     DateTime?
+  sentAt            DateTime?
+  providerMessageId String?            @db.VarChar(255)
+  lastError         String?            @db.Text
+  payload           Json
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  recipient User            @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  ticket    Ticket?         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attempts  NotificationAttempt[]
+
+  @@index([recipientId, status])
+  @@index([ticketId])
+  @@index([status])
+  @@map("notifications")
+}
+
+model NotificationAttempt {
+  id                String   @id @default(uuid()) @db.Uuid
+  notificationId    String   @db.Uuid
+  attemptNumber     Int
+  status            String   @db.VarChar(16)
+  providerMessageId String?  @db.VarChar(255)
+  error             String?  @db.Text
+  createdAt         DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@map("notification_attempts")
+}
+
+model Job {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        JobType
+  status      JobStatus @default(PENDING)
+  payload     Json
+  dedupeKey   String?   @unique @db.VarChar(255)
+  runAt       DateTime  @default(now())
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  lockedBy    String?   @db.VarChar(64)
+  lockedAt    DateTime?
+  lastError   String?   @db.Text
+  result      Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, runAt])
+  @@index([type, status])
+  @@map("jobs")
+}
+
+model ReminderOccurrence {
+  id                String      @id @default(uuid()) @db.Uuid
+  ticketId          String      @db.Uuid
+  kind              ReminderKind
+  occurrenceKey     String      @unique @db.VarChar(255)
+  dueAt             DateTime
+  status            JobStatus   @default(PENDING)
+  assignedOfficerId String?     @db.Uuid
+  notificationId    String?     @db.Uuid
+  completedAt       DateTime?
+  failureReason     String?     @db.Text
+  createdAt         DateTime    @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, kind])
+  @@index([status, dueAt])
+  @@map("reminder_occurrences")
+}
+
+// ---------------------------------------------------------------------------
+// Platform
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String   @db.VarChar(120)
+  entityType String   @db.VarChar(60)
+  entityId   String?  @db.VarChar(64)
+  metadata   Json?
+  ipAddress  String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key         String   @id @db.VarChar(120)
+  value       Json
+  description String?  @db.VarChar(255)
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model Counter {
+  name  String @id @db.VarChar(64)
+  value BigInt @default(0)
+
+  @@map("counters")
+}

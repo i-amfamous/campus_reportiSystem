@@ -1,0 +1,139 @@
+# ---------------------------------------------------------------------------
+# Campus Resolve — single-host deployment
+#
+#   cp .env.example .env      # set SESSION_SECRET, DATABASE_URL, APP_URL, CORS_ORIGINS
+#   docker compose up -d --build
+#   docker compose exec api npx prisma migrate deploy
+#   docker compose exec api npm run seed
+#
+# See docs/operations.md for the full runbook.
+# ---------------------------------------------------------------------------
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-campus_resolve}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-campus_resolve}
+      POSTGRES_DB: ${POSTGRES_DB:-campus_resolve}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-campus_resolve} -d ${POSTGRES_DB:-campus_resolve}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [campus]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: '4000'
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      API_URL: ${API_URL:-http://localhost:8080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-campus_resolve}:${POSTGRES_PASSWORD:-campus_resolve}@db:5432/${POSTGRES_DB:-campus_resolve}?schema=public
+      INSTITUTION_NAME: ${INSTITUTION_NAME:-Ghana Communication Technology University}
+      INSTITUTION_EMAIL_DOMAINS: ${INSTITUTION_EMAIL_DOMAINS:-live.gctu.edu.gh}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@campusresolve.edu.gh}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-campus_session}
+      CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-campus_csrf}
+      # A browser refuses a `Secure` cookie that arrives over plain HTTP. The
+      # bundled deployment serves http://localhost:8080, so the flag is off
+      # here. Set it back to true once the site is served over HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Campus Resolve}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-no-reply@campusresolve.edu.gh}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      STORAGE_DIR: /var/lib/campus-resolve/attachments
+      STORAGE_MAX_FILE_SIZE_MB: ${STORAGE_MAX_FILE_SIZE_MB:-10}
+      REMINDER_INTERVAL_MINUTES: ${REMINDER_INTERVAL_MINUTES:-120}
+      ESCALATION_AFTER_REMINDERS: ${ESCALATION_AFTER_REMINDERS:-3}
+      MAX_REMINDERS: ${MAX_REMINDERS:-8}
+      SLA_FIRST_RESPONSE_MINUTES: ${SLA_FIRST_RESPONSE_MINUTES:-480}
+      SLA_RESOLUTION_MINUTES: ${SLA_RESOLUTION_MINUTES:-4320}
+      AUTO_CLOSE_DAYS: ${AUTO_CLOSE_DAYS:-14}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-superadmin@live.gctu.edu.gh}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!2026}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Platform Super Administrator}
+    volumes:
+      - attachments:/var/lib/campus-resolve/attachments
+    ports:
+      - '${API_PORT:-4000}:4000'
+    networks: [campus]
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ['node', 'dist/jobs/worker-entry.js']
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      API_URL: ${API_URL:-http://localhost:8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-campus_resolve}:${POSTGRES_PASSWORD:-campus_resolve}@db:5432/${POSTGRES_DB:-campus_resolve}?schema=public
+      INSTITUTION_NAME: ${INSTITUTION_NAME:-Ghana Communication Technology University}
+      INSTITUTION_EMAIL_DOMAINS: ${INSTITUTION_EMAIL_DOMAINS:-live.gctu.edu.gh}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@campusresolve.edu.gh}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Campus Resolve}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-no-reply@campusresolve.edu.gh}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      STORAGE_DIR: /var/lib/campus-resolve/attachments
+      STORAGE_MAX_FILE_SIZE_MB: ${STORAGE_MAX_FILE_SIZE_MB:-10}
+      REMINDER_INTERVAL_MINUTES: ${REMINDER_INTERVAL_MINUTES:-120}
+      ESCALATION_AFTER_REMINDERS: ${ESCALATION_AFTER_REMINDERS:-3}
+      MAX_REMINDERS: ${MAX_REMINDERS:-8}
+      SLA_FIRST_RESPONSE_MINUTES: ${SLA_FIRST_RESPONSE_MINUTES:-480}
+      SLA_RESOLUTION_MINUTES: ${SLA_RESOLUTION_MINUTES:-4320}
+      AUTO_CLOSE_DAYS: ${AUTO_CLOSE_DAYS:-14}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-30000}
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-25}
+      WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-5}
+    volumes:
+      - attachments:/var/lib/campus-resolve/attachments
+    networks: [campus]
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    networks: [campus]
+
+volumes:
+  db-data:
+  attachments:
+
+networks:
+  campus:
+    driver: bridge
