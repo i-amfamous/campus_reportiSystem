@@ -1,1 +1,19 @@
 node_modules
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Generated build and test output
+**/dist/
+coverage/
+playwright-report/
+test-results/
+
+# Local uploads and system files
+apps/api/storage/
+.DS_Store
