@@ -21,6 +21,8 @@ export interface NotificationPayload {
   messageBody?: string;
   note?: string;
   token?: string;
+  /** One-time verification code, delivered through the same `token` slot. */
+  otp?: string;
   nextAction?: string;
   detail?: string;
   escalationLevel?: number;
@@ -138,7 +140,7 @@ function buildTemplateContext(
     ticket,
     actorName: payload.actorName,
     messageBody: payload.messageBody,
-    token: payload.token,
+    token: payload.token ?? payload.otp,
     actionUrl: payload.referenceNumber
       ? ticketLink(config.APP_URL, payload.referenceNumber)
       : config.APP_URL,

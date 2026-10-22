@@ -344,6 +344,7 @@ export function VerifyOtpPage() {
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
 
   const form = useForm<z.infer<typeof verifyOtpSchema>>({
     resolver: zodResolver(verifyOtpSchema),
@@ -404,6 +405,13 @@ export function VerifyOtpPage() {
       navigate('/login', { replace: true });
     } catch (caught) {
       setOtpError((caught as ApiError).message);
+
+      if (caught instanceof ApiError && caught.status === 400) {
+        setOtpValues(['', '', '', '', '', '']);
+        form.setValue('otp', '', { shouldValidate: false });
+        form.clearErrors('otp');
+        setShakeKey((current) => current + 1);
+      }
     } finally {
       setVerifying(false);
     }
@@ -428,6 +436,10 @@ export function VerifyOtpPage() {
     }, 1000);
     return () => clearTimeout(timer);
   }, [resendSeconds]);
+
+  useEffect(() => {
+    if (shakeKey > 0) document.getElementById('otp-0')?.focus();
+  }, [shakeKey]);
 
   const otp = otpValues.join('');
   const resendable = resendSeconds === 0;
@@ -462,7 +474,11 @@ export function VerifyOtpPage() {
             required
             error={form.formState.errors.otp?.message}
           >
-            <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+            <div
+              key={shakeKey}
+              data-testid="otp-group"
+              className={`flex flex-wrap justify-center gap-2 sm:justify-start${shakeKey > 0 ? ' animate-otp-shake' : ''}`}
+            >
               {otpValues.map((value, index) => (
                 <OtpDigit
                   key={index}

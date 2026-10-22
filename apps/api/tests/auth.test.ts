@@ -9,6 +9,12 @@ import {
   TEST_PASSWORD,
 } from './helpers/test-app';
 import type { Express } from 'express';
+import { runJob } from '../src/jobs/handlers';
+import {
+  resetEmailProvider,
+  setEmailProvider,
+  type EmailMessage,
+} from '../src/modules/notifications/email.provider';
 
 const app: Express = buildApp();
 let client: ApiClient;
@@ -228,7 +234,29 @@ describe('authentication', () => {
 
       const notification = await latestNotification('EMAIL_VERIFICATION');
       expect(notification).not.toBeNull();
-      expect((notification!.payload as { otp?: string }).otp).toMatch(/^[0-9]{6}$/);
+      const otp = (notification!.payload as { otp?: string }).otp;
+      expect(otp).toMatch(/^[0-9]{6}$/);
+
+      const sent: EmailMessage[] = [];
+      setEmailProvider({
+        name: 'test',
+        send: async (message) => {
+          sent.push(message);
+          return { providerMessageId: 'test-verification-code' };
+        },
+      });
+      try {
+        const job = await prisma.job.findFirstOrThrow({
+          where: { type: 'NOTIFICATION_DELIVERY' },
+          orderBy: { createdAt: 'desc' },
+        });
+        await runJob(job);
+        expect(sent).toHaveLength(1);
+        expect(sent[0]!.text).toContain(otp);
+        expect(sent[0]!.text).toContain('expires in 10 minutes');
+      } finally {
+        resetEmailProvider();
+      }
     });
 
     it('blocks sign-in for a suspended account', async () => {

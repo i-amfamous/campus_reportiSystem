@@ -124,6 +124,46 @@ describe('unverified sign-in', () => {
     expect(await screen.findByText('Home')).toBeInTheDocument();
     expect(loginAttempts).toBe(2);
   });
+
+  test('shakes and clears the digits when the verification code is rejected', async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = renderWithProviders(
+      <Routes>
+        <Route path="/verify-otp" element={<VerifyOtpPage />} />
+      </Routes>,
+      { user: null, route: '/verify-otp?email=10234567@live.gctu.edu.gh' },
+    );
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/api/v1/auth/verify-otp') && init?.method === 'POST') {
+        return jsonResponse(
+          {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'The verification code is incorrect or has expired.',
+            },
+          },
+          400,
+        );
+      }
+      return jsonResponse({});
+    });
+
+    for (const [index, digit] of '123456'.split('').entries()) {
+      await user.type(document.getElementById(`otp-${index}`)!, digit);
+    }
+    await user.click(screen.getByRole('button', { name: 'Verify email' }));
+
+    expect(
+      await screen.findByText('The verification code is incorrect or has expired.'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('otp-group')).toHaveClass('animate-otp-shake');
+
+    for (let index = 0; index < 6; index += 1) {
+      expect((document.getElementById(`otp-${index}`) as HTMLInputElement).value).toBe('');
+    }
+  });
 });
 
 describe('AcceptInvitationPage', () => {
