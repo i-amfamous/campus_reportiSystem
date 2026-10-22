@@ -56,7 +56,7 @@ const envSchema = z.object({
 
   INSTITUTION_NAME: z.string().min(2).default('Campus Resolve'),
   INSTITUTION_EMAIL_DOMAINS: csv(['live.gctu.edu.gh']),
-  SUPPORT_EMAIL: z.string().email().default('2425400074@live.gctu.edu.gh'),
+  SUPPORT_EMAIL: z.string().email().default('amoswnganbe@gmail.com'),
 
   SESSION_COOKIE_NAME: z.string().default('campus_session'),
   CSRF_COOKIE_NAME: z.string().default('campus_csrf'),
@@ -109,7 +109,7 @@ const envSchema = z.object({
     .optional()
     .transform((value) => (value && value.trim() ? value.trim() : undefined)),
 
-  BOOTSTRAP_ADMIN_EMAIL: z.string().email().default('2425400074@live.gctu.edu.gh'),
+  BOOTSTRAP_ADMIN_EMAIL: z.string().email().default('amoswnganbe@gmail.com'),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().default('ChangeMe!2026'),
   BOOTSTRAP_ADMIN_NAME: z.string().default('Platform Super Administrator'),
 });

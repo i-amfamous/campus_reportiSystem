@@ -62,6 +62,7 @@ async function createTicket(
   const response = await client.post('/api/v1/tickets', {
     categoryId: fixture.category.id,
     departmentId: fixture.department.id,
+    studentEmail: fixture.student.email,
     subject: 'My examination results are missing from the portal',
     description:
       'My semester results were not uploaded to the student portal and I need them for registration.',
@@ -272,7 +273,7 @@ describe('administration', () => {
       token: studentToken,
       password: 'Ch00se!StrongPassword',
     });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
 
     // The student account is untouched by the failed attempt.
     const user = await prisma.user.findUniqueOrThrow({

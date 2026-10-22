@@ -20,6 +20,10 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
     next(accountSuspended());
     return;
   }
+  if (req.auth.accountStatus === 'DEACTIVATED') {
+    next(forbidden('This account has been deactivated.'));
+    return;
+  }
   next();
 }
 

@@ -9,7 +9,7 @@ import {
   registerSchema,
   resendVerificationSchema,
   resetPasswordSchema,
-  verifyEmailSchema,
+  verifyOtpSchema,
 } from '@campus-resolve/shared';
 import { validate } from '../middleware/validate';
 import { requireAuth } from '../middleware/auth';
@@ -65,12 +65,12 @@ authRouter.post('/register', verificationLimiter, validate(registerSchema), asyn
     fullName: result.user.fullName,
     studentId: result.user.studentId,
     emailVerified: false,
-    message: 'Check your institutional inbox to verify your email address.',
+    message: 'Check your inbox to verify your email address.',
   });
 });
 
-authRouter.post('/verify-email', validate(verifyEmailSchema), async (req, res) => {
-  const result = await authService.verifyEmail(req.body.token);
+authRouter.post('/verify-otp', validationLimiter, validate(verifyOtpSchema), async (req, res) => {
+  const result = await authService.verifyOtp(req.body.email, req.body.otp);
   res.json({ verified: true, email: result.email, fullName: result.fullName });
 });
 
@@ -115,6 +115,7 @@ authRouter.post('/login', loginLimiter, validate(loginSchema), async (req, res) 
       emailVerified: result.user.emailVerifiedAt !== null,
       accountStatus: result.user.accountStatus,
     },
+    mustChangePassword: (result as any).mustChangePassword ?? (result.user as any).mustChangePassword ?? false,
   });
 });
 

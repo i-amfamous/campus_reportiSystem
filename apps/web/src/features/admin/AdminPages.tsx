@@ -302,6 +302,23 @@ export function AdminUsersPage() {
     },
   });
 
+  const resetPassword = useMutation({
+    mutationFn: (userId: string) => api.post(`/api/v1/admin/users/${userId}/reset-password`, {}),
+    onSuccess: (result: any) => {
+      toast.push({
+        tone: 'success',
+        title: 'Password reset',
+        description: result.temporaryPassword
+          ? `Temporary password: ${result.temporaryPassword} (user must change on login)`
+          : 'Temporary password emailed to the user (must change on login)',
+      });
+      void users.refetch();
+    },
+    onError: (error) => {
+      toast.push({ tone: 'error', title: 'Reset failed', description: errorMessage(error) });
+    },
+  });
+
   const deleteUser = useMutation({
     mutationFn: (input: { userId: string; reason: string }) =>
       api.delete(`/api/v1/admin/users/${input.userId}`, {
@@ -472,6 +489,16 @@ export function AdminUsersPage() {
                         {user.id !== auth.user?.id ? (
                           <Button
                             size="sm"
+                            variant="secondary"
+                            onClick={() => resetPassword.mutate(user.id)}
+                            loading={resetPassword.isPending}
+                          >
+                            Reset password
+                          </Button>
+                        ) : null}
+                        {user.id !== auth.user?.id ? (
+                          <Button
+                            size="sm"
                             variant="danger"
                             onClick={() =>
                               setDeleteTarget({ id: user.id, fullName: user.fullName })
@@ -614,6 +641,8 @@ function InviteStaffDialog({
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<RoleName>('OFFICER');
   const [departmentId, setDepartmentId] = useState('');
+  const [password, setPassword] = useState('');
+  const [setPasswordNow, setSetPasswordNow] = useState(false);
 
   const submit = () => {
     onSubmit({
@@ -622,6 +651,7 @@ function InviteStaffDialog({
       role,
       departmentId: departmentId || null,
       departmentRole: 'OFFICER',
+      ...(setPasswordNow && password ? { password } : {}),
     });
   };
 
@@ -630,14 +660,14 @@ function InviteStaffDialog({
       open={open}
       onClose={onClose}
       title="Invite a staff member"
-      description="They receive an email with a link to activate their staff account."
+      description={setPasswordNow ? "Create account with a password the staff must change on first login." : "They receive an email with a link to activate their staff account."}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button loading={pending} onClick={submit} disabled={!email || !fullName}>
-            Send invitation
+          <Button loading={pending} onClick={submit} disabled={!email || !fullName || (setPasswordNow && !password)}>
+            {setPasswordNow ? 'Create staff account' : 'Send invitation'}
           </Button>
         </>
       }
@@ -696,6 +726,25 @@ function InviteStaffDialog({
             ))}
           </Select>
         </FormField>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+            checked={setPasswordNow}
+            onChange={(event) => setSetPasswordNow(event.target.checked)}
+          />
+          <span>Set a password now (user must change it on first login)</span>
+        </label>
+        {setPasswordNow ? (
+          <FormField label="Password" htmlFor="invite-password" required hint="User will be asked to change this on first login">
+            <Input
+              id="invite-password"
+              type="text"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </FormField>
+        ) : null}
       </div>
     </Dialog>
   );

@@ -13,6 +13,7 @@ import {
   deleteAccountSchema,
   ACCOUNT_DELETION_CONFIRMATION,
   normalizeEmail,
+  verifyOtpSchema,
 } from '@campus-resolve/shared';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -27,6 +28,18 @@ import {
   useToast,
 } from '../../components/ui';
 
+/* -------------------------------------------------------------------------- */
+/* Layout primitives                                                          */
+/* -------------------------------------------------------------------------- */
+
+function AuthShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 sm:px-6 lg:px-8 py-4 sm:py-0">
+      {children}
+    </div>
+  );
+}
+
 function AuthCard({
   title,
   description,
@@ -39,20 +52,52 @@ function AuthCard({
   footer?: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardBody className="space-y-5 p-6">
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900">{title}</h1>
-          {description ? <p className="text-sm text-slate-500">{description}</p> : null}
+    <Card className="max-w-md w-full">
+      <CardBody className="p-6 sm:p-8 space-y-6">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">{title}</h1>
+          {description ? (
+            <p className="mt-1 text-sm text-slate-500">{description}</p>
+          ) : null}
         </div>
         {children}
       </CardBody>
       {footer ? (
-        <div className="border-t border-slate-200 px-6 py-4 text-center text-sm text-slate-600">
+        <div className="border-t border-slate-200 bg-slate-50/50 px-6 py-4 text-center text-sm">
           {footer}
         </div>
       ) : null}
     </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* OTP digit input                                                            */
+/* -------------------------------------------------------------------------- */
+
+function OtpDigit({ value, index, onChange, disabled }: { value: string; index: number; onChange: (index: number, value: string) => void; disabled?: boolean }) {
+  return (
+    <div className="flex items-center justify-center">
+      <Input
+        className="h-12 w-12 text-center text-xl font-semibold rounded-lg border-2 border-slate-200 bg-white text-slate-900 text-center focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-300"
+        id={`otp-${index}`}
+        maxLength={1}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => {
+          const val = event.target.value;
+          onChange(index, val);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Backspace' && !value && index > 0) {
+            document.getElementById(`otp-${index - 1}`)?.focus();
+          }
+        }}
+        autoComplete="one-time-code"
+        inputMode="numeric"
+        spellCheck={false}
+      />
+    </div>
   );
 }
 
@@ -70,7 +115,11 @@ export function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  if (auth.isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (auth.isAuthenticated) {
+    if (auth.hasRole('SUPER_ADMIN') || auth.hasRole('ADMIN')) return <Navigate to="/admin/dashboard" replace />;
+    if (auth.isStaff) return <Navigate to="/staff" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
@@ -85,68 +134,70 @@ export function LoginPage() {
         toast.push({
           tone: 'error',
           title: 'Verify your email first',
-          description: 'Use the link we sent to your institutional inbox.',
+          description: 'Use the code we sent to your email address.',
         });
       }
     }
   });
 
   return (
-    <AuthCard
-      title="Sign in to Campus Resolve"
-      description="Report academic and administrative issues and follow every update."
-      footer={
-        <>
-          No account yet?{' '}
-          <Link to="/register" className="font-semibold text-indigo-700 hover:underline">
-            Register with your institutional email
+    <AuthShell>
+      <AuthCard
+        title="Welcome back"
+        description="Sign in to continue tracking your reports."
+        footer={
+          <>
+            No account yet?{' '}
+            <Link to="/register" className="font-semibold text-indigo-600 hover:text-indigo-700 underline">
+              Create an account
+            </Link>
+          </>
+        }
+      >
+        <form className="space-y-4" onSubmit={onSubmit} noValidate>
+          {error ? (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+          <FormField
+            label="Email"
+            htmlFor="email"
+            required
+            error={form.formState.errors.email?.message}
+          >
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="name@example.com"
+              {...form.register('email')}
+            />
+          </FormField>
+          <FormField
+            label="Password"
+            htmlFor="password"
+            required
+            error={form.formState.errors.password?.message}
+          >
+            <PasswordField
+              id="password"
+              autoComplete="current-password"
+              {...form.register('password')}
+            />
+          </FormField>
+          <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
+            Sign in
+          </Button>
+          <Link
+            to="/forgot-password"
+            className="block text-center text-xs text-slate-600 hover:text-slate-900 underline"
+          >
+            Forgot your password?
           </Link>
-        </>
-      }
-    >
-      <form className="space-y-4" onSubmit={onSubmit} noValidate>
-        {error ? (
-          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {error}
-          </div>
-        ) : null}
-        <FormField
-          label="Institutional email"
-          htmlFor="email"
-          required
-          error={form.formState.errors.email?.message}
-        >
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="10234567@live.gctu.edu.gh"
-            {...form.register('email')}
-          />
-        </FormField>
-        <FormField
-          label="Password"
-          htmlFor="password"
-          required
-          error={form.formState.errors.password?.message}
-        >
-          <PasswordField
-            id="password"
-            autoComplete="current-password"
-            {...form.register('password')}
-          />
-        </FormField>
-        <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
-          Sign in
-        </Button>
-        <Link
-          to="/forgot-password"
-          className="block text-center text-xs text-slate-600 hover:text-slate-900"
-        >
-          Forgot your password?
-        </Link>
-      </form>
-    </AuthCard>
+        </form>
+      </AuthCard>
+    </AuthShell>
   );
 }
 
@@ -155,7 +206,7 @@ export function LoginPage() {
 /* -------------------------------------------------------------------------- */
 
 export function RegisterPage() {
-  const toast = useToast();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const form = useForm<z.infer<typeof registerSchema>>({
@@ -178,11 +229,6 @@ export function RegisterPage() {
         studentId: values.studentId?.trim() || undefined,
       });
       setDone(true);
-      toast.push({
-        tone: 'success',
-        title: 'Account created',
-        description: 'Check your inbox for the verification link.',
-      });
     } catch (caught) {
       const apiError = caught as ApiError;
       setError(apiError.message);
@@ -194,100 +240,256 @@ export function RegisterPage() {
   });
 
   if (done) {
-    return (
-      <AuthCard
-        title="Verify your email address"
-        description={`We sent a verification link to ${form.getValues('email')}. The link expires in 24 hours.`}
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-slate-600">
-            Your account becomes active once you confirm control of your institutional mailbox.
-            Verifying an email address confirms the mailbox — it does not by itself confirm that you
-            are currently enrolled.
-          </p>
-          <Button variant="secondary" className="w-full" onClick={() => setDone(false)}>
-            Use a different email
-          </Button>
-        </div>
-      </AuthCard>
-    );
+    navigate(`/verify-otp?email=${encodeURIComponent(form.getValues('email'))}`, {
+      replace: true,
+    });
+    return null;
   }
 
   return (
-    <AuthCard
-      title="Create your student account"
-      description="Only your institutional email address is required."
-      footer={
-        <>
-          Already registered?{' '}
-          <Link to="/login" className="font-semibold text-indigo-700 hover:underline">
-            Sign in
-          </Link>
-        </>
-      }
-    >
-      <form className="space-y-4" onSubmit={onSubmit} noValidate>
-        {error ? (
-          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {error}
-          </div>
-        ) : null}
-        <FormField
-          label="Full name"
-          htmlFor="fullName"
-          required
-          error={form.formState.errors.fullName?.message}
-        >
-          <Input id="fullName" autoComplete="name" {...form.register('fullName')} />
-        </FormField>
-        <FormField
-          label="Institutional email"
-          htmlFor="email"
-          required
-          error={form.formState.errors.email?.message}
-          hint="Your student number as your email address, for example 10234567@live.gctu.edu.gh."
-        >
-          <Input id="email" type="email" autoComplete="email" {...form.register('email')} />
-        </FormField>
-        <FormField
-          label="Student ID"
-          htmlFor="studentId"
-          error={form.formState.errors.studentId?.message}
-          hint="Optional — we derive it from your email address when it is numeric."
-        >
-          <Input id="studentId" {...form.register('studentId')} />
-        </FormField>
-        <FormField
-          label="Password"
-          htmlFor="password"
-          required
-          error={form.formState.errors.password?.message}
-        >
-          <PasswordField id="password" autoComplete="new-password" {...form.register('password')} />
-        </FormField>
-        <label className="flex items-start gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
-            {...form.register('acceptTerms')}
-          />
-          <span>I accept the privacy notice and the usage terms for academic issue reporting.</span>
-        </label>
-        {form.formState.errors.acceptTerms?.message ? (
-          <p className="text-xs font-medium text-rose-600" role="alert">
-            {form.formState.errors.acceptTerms.message}
-          </p>
-        ) : null}
-        <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
-          Create account
-        </Button>
-      </form>
-    </AuthCard>
+    <AuthShell>
+      <AuthCard
+        title="Create your account"
+        description="Join Campus Resolve and start tracking your academic and administrative reports."
+        footer={
+          <>
+            Already registered?{' '}
+            <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 underline">
+              Sign in
+            </Link>
+          </>
+        }
+      >
+        <form className="space-y-4" onSubmit={onSubmit} noValidate>
+          {error ? (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+          <FormField
+            label="Full name"
+            htmlFor="fullName"
+            required
+            error={form.formState.errors.fullName?.message}
+          >
+            <Input id="fullName" autoComplete="name" {...form.register('fullName')} />
+          </FormField>
+          <FormField
+            label="Email"
+            htmlFor="email"
+            required
+            error={form.formState.errors.email?.message}
+            hint="Enter the email address you will use to sign in."
+          >
+            <Input id="email" type="email" autoComplete="email" {...form.register('email')} />
+          </FormField>
+          <FormField
+            label="Student ID"
+            htmlFor="studentId"
+            error={form.formState.errors.studentId?.message}
+            hint="Optional — your student ID, if you have one."
+          >
+            <Input id="studentId" {...form.register('studentId')} />
+          </FormField>
+          <FormField
+            label="Password"
+            htmlFor="password"
+            required
+            error={form.formState.errors.password?.message}
+            hint="At least 10 characters with upper case, lower case, and a number."
+          >
+            <PasswordField id="password" autoComplete="new-password" {...form.register('password')} />
+          </FormField>
+          <label className="flex items-start gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+              {...form.register('acceptTerms')}
+            />
+            <span>I accept the privacy notice and the usage terms for academic issue reporting.</span>
+          </label>
+          {form.formState.errors.acceptTerms?.message ? (
+            <p className="text-xs font-medium text-rose-600" role="alert">
+              {form.formState.errors.acceptTerms.message}
+            </p>
+          ) : null}
+          <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
+            Create account
+          </Button>
+        </form>
+      </AuthCard>
+    </AuthShell>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/* Verify email                                                               */
+/* OTP verification                                                           */
+/* -------------------------------------------------------------------------- */
+
+export function VerifyOtpPage() {
+  const [params] = useSearchParams();
+  const email = params.get('email') ?? '';
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [, setError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [resendable, setResendable] = useState(true);
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  const form = useForm<z.infer<typeof verifyOtpSchema>>({
+    resolver: zodResolver(verifyOtpSchema),
+    defaultValues: { email, otp: '' },
+  });
+
+  const onDigitChange = (index: number, value: string) => {
+    const next = [...otpValues];
+    next[index] = value;
+    setOtpValues(next);
+    setOtpError(null);
+    setError(null);
+
+    if (value && index < 5) {
+      document.getElementById(`otp-${index + 1}`)?.focus();
+    }
+
+    if (next.every((v) => v.length === 1)) {
+      form.setValue('otp', next.join(''), { shouldValidate: true });
+    } else {
+      form.setValue('otp', next.join(''), { shouldValidate: false });
+    }
+  };
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setVerifying(true);
+    setError(null);
+    setOtpError(null);
+    try {
+      await api.post('/api/v1/auth/verify-otp', {
+        email: values.email,
+        otp: values.otp,
+      });
+      await api.post('/api/v1/auth/login', { email: values.email, password: '' });
+      toast.push({
+        tone: 'success',
+        title: 'Email verified',
+        description: 'Your account is active and you are now signed in.',
+      });
+      navigate('/dashboard', { replace: true });
+    } catch (caught) {
+      const apiError = caught as ApiError;
+      setOtpError(apiError.message);
+      setError(apiError.message);
+    } finally {
+      setVerifying(false);
+    }
+  });
+
+  const resendOtp = async () => {
+    setError(null);
+    setOtpError(null);
+    try {
+      await api.post('/api/v1/auth/resend-verification', { email });
+      setResendable(false);
+      let seconds = 30;
+      const timer = setInterval(() => {
+        setResendSeconds(seconds);
+        seconds -= 1;
+        if (seconds <= 0) {
+          clearInterval(timer);
+          setResendable(true);
+          setResendSeconds(0);
+        }
+      }, 1000);
+    } catch (caught) {
+      setError((caught as ApiError).message);
+    }
+  };
+
+  useEffect(() => {
+    if (resendable) return;
+    const timer = setInterval(() => {
+      setResendSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendable]);
+
+  const otp = otpValues.join('');
+
+  return (
+    <AuthShell>
+      <AuthCard
+        title="Verify your email"
+        description="Enter the 6-digit code sent to your email address."
+      >
+        {otpError ? (
+          <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {otpError}
+          </div>
+        ) : null}
+
+        <form className="space-y-1" onSubmit={onSubmit} noValidate>
+          <div className="space-y-1">
+            <FormField
+            label="Verification code"
+            htmlFor="otp"
+            required
+            error={form.formState.errors.otp?.message}
+          >
+            <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+              {otpValues.map((value, index) => (
+                <OtpDigit
+                  key={index}
+                  index={index}
+                  value={value}
+                  onChange={onDigitChange}
+                  disabled={verifying}
+                />
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 text-center">
+              Didn&apos;t receive the code?{' '}
+              {resendable ? (
+                <button
+                  type="button"
+                  onClick={resendOtp}
+                  className="text-indigo-600 font-semibold hover:text-indigo-700 underline hover:decoration-indigo-600"
+                >
+                  Resend code
+                </button>
+              ) : (
+                <>
+                  Resend in {resendSeconds}s
+                </>
+              )}
+            </p>
+          </FormField>
+        </div>
+        </form>
+
+        <Button
+          type="submit"
+          className="w-full"
+          loading={verifying}
+          disabled={verifying || otp.length !== 6}
+        >
+          {verifying ? 'Verifying…' : 'Verify & sign in'}
+        </Button>
+
+        <div className="text-center text-sm text-slate-600">
+          Already verified?{' '}
+          <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 underline">
+            Sign in
+          </Link>
+        </div>
+      </AuthCard>
+    </AuthShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Verify email (token link - kept for backward compatibility)                */
 /* -------------------------------------------------------------------------- */
 
 export function VerifyEmailPage() {
@@ -313,39 +515,59 @@ export function VerifyEmailPage() {
   };
 
   return (
-    <AuthCard
-      title="Email verification"
-      description="Confirm your institutional email address to activate your account."
-    >
-      {state === 'done' ? (
-        <div className="space-y-4">
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            Your email address is verified. You can now sign in.
-          </p>
-          <Link to="/login">
-            <Button className="w-full">Go to sign in</Button>
-          </Link>
-        </div>
-      ) : state === 'error' ? (
-        <div className="space-y-4">
-          <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p>
-          <Link to="/login">
-            <Button variant="secondary" className="w-full">
-              Back to sign in
+    <AuthShell>
+      <AuthCard
+        title="Email verification"
+        description="Confirm your email address to activate your account."
+      >
+        {state === 'done' ? (
+          <div className="space-y-4 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <span className="rounded-full bg-emerald-100 p-2 text-emerald-600">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </span>
+            </div>
+            <p className="text-sm font-medium text-emerald-800">
+              Your email address is verified. You can now sign in.
+            </p>
+            <Link to="/login">
+              <Button className="w-full sm:w-auto">Go to sign in</Button>
+            </Link>
+          </div>
+        ) : state === 'error' ? (
+          <div className="space-y-4 text-center">
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {message}
+            </p>
+            <Link to="/login">
+              <Button variant="secondary" className="w-full sm:w-auto">
+                Back to sign in
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4 text-center">
+            <p className="text-sm text-slate-600">
+              {state === 'verifying' ? 'Verifying…' : 'Your verification link is ready.'}
+            </p>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={verify}
+              loading={state === 'verifying'}
+            >
+              Verify my email address
             </Button>
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            {state === 'verifying' ? 'Verifying…' : 'Your verification link is ready.'}
-          </p>
-          <Button className="w-full" onClick={verify} loading={state === 'verifying'}>
-            Verify my email address
-          </Button>
-        </div>
-      )}
-    </AuthCard>
+          </div>
+        )}
+      </AuthCard>
+    </AuthShell>
   );
 }
 
@@ -375,46 +597,44 @@ export function AcceptInvitationPage() {
 
   if (done) {
     return (
-      <AuthCard
-        title="Your staff account is active"
-        description="Choose a password and you can start working on reports."
-      >
-        <div className="space-y-4">
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            The invitation has been accepted.
-          </p>
-          <Link to="/login">
-            <Button className="w-full">Go to sign in</Button>
-          </Link>
-        </div>
-      </AuthCard>
+      <AuthShell>
+        <AuthCard title="Your staff account is active" description="Choose a password and you can start working on reports.">
+          <div className="space-y-4 text-center">
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              The invitation has been accepted.
+            </p>
+            <Link to="/login">
+              <Button className="w-full sm:w-auto">Go to sign in</Button>
+            </Link>
+          </div>
+        </AuthCard>
+      </AuthShell>
     );
   }
 
   return (
-    <AuthCard
-      title="Accept your staff invitation"
-      description="Choose the password you will use to sign in. This also confirms your institutional email address."
-    >
-      <form className="space-y-4" onSubmit={onSubmit} noValidate>
-        {error ? (
-          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {error}
-          </div>
-        ) : null}
-        <FormField
-          label="New password"
-          htmlFor="password"
-          required
-          error={form.formState.errors.password?.message}
-        >
-          <PasswordField id="password" autoComplete="new-password" {...form.register('password')} />
-        </FormField>
-        <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
-          Activate my account
-        </Button>
-      </form>
-    </AuthCard>
+    <AuthShell>
+      <AuthCard title="Accept your staff invitation" description="Choose the password you will use to sign in.">
+        <form className="space-y-4" onSubmit={onSubmit} noValidate>
+          {error ? (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+          <FormField
+            label="New password"
+            htmlFor="password"
+            required
+            error={form.formState.errors.password?.message}
+          >
+            <PasswordField id="password" autoComplete="new-password" {...form.register('password')} />
+          </FormField>
+          <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
+            Activate my account
+          </Button>
+        </form>
+      </AuthCard>
+    </AuthShell>
   );
 }
 
@@ -435,35 +655,34 @@ export function ForgotPasswordPage() {
   });
 
   return (
-    <AuthCard
-      title="Reset your password"
-      description="We will email you a single-use link that expires in 60 minutes."
-      footer={
-        <Link to="/login" className="font-semibold text-indigo-700 hover:underline">
-          Back to sign in
-        </Link>
-      }
-    >
-      {sent ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          If the account exists, a password reset link has been sent.
-        </p>
-      ) : (
-        <form className="space-y-4" onSubmit={onSubmit} noValidate>
-          <FormField
-            label="Institutional email"
-            htmlFor="email"
-            required
-            error={form.formState.errors.email?.message}
-          >
-            <Input id="email" type="email" autoComplete="email" {...form.register('email')} />
-          </FormField>
-          <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
-            Send reset link
-          </Button>
-        </form>
-      )}
-    </AuthCard>
+    <AuthShell>
+      <AuthCard title="Reset your password" description="We will email you a single-use link that expires in 60 minutes.">
+        {sent ? (
+          <div className="space-y-4 text-center">
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              If the account exists, a password reset link has been sent.
+            </p>
+            <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 underline">
+              Back to sign in
+            </Link>
+          </div>
+        ) : (
+          <form className="space-y-4" onSubmit={onSubmit} noValidate>
+            <FormField
+              label="Email"
+              htmlFor="email"
+              required
+              error={form.formState.errors.email?.message}
+            >
+              <Input id="email" type="email" autoComplete="email" {...form.register('email')} />
+            </FormField>
+            <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
+              Send reset link
+            </Button>
+          </form>
+        )}
+      </AuthCard>
+    </AuthShell>
   );
 }
 
@@ -482,24 +701,23 @@ export function ResetPasswordPage() {
   });
 
   return (
-    <AuthCard
-      title="Choose a new password"
-      description="Your existing sessions will be signed out."
-    >
-      <form className="space-y-4" onSubmit={onSubmit} noValidate>
-        <FormField
-          label="New password"
-          htmlFor="password"
-          required
-          error={form.formState.errors.password?.message}
-        >
-          <PasswordField id="password" autoComplete="new-password" {...form.register('password')} />
-        </FormField>
-        <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
-          Update password
-        </Button>
-      </form>
-    </AuthCard>
+    <AuthShell>
+      <AuthCard title="Choose a new password" description="Your existing sessions will be signed out.">
+        <form className="space-y-4" onSubmit={onSubmit} noValidate>
+          <FormField
+            label="New password"
+            htmlFor="password"
+            required
+            error={form.formState.errors.password?.message}
+          >
+            <PasswordField id="password" autoComplete="new-password" {...form.register('password')} />
+          </FormField>
+          <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
+            Update password
+          </Button>
+        </form>
+      </AuthCard>
+    </AuthShell>
   );
 }
 
@@ -532,14 +750,16 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Your profile</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+          Your profile
+        </h1>
         <p className="text-sm text-slate-500">Account details and password management.</p>
       </header>
 
       <Card>
         <CardBody className="space-y-3 p-5 text-sm">
           <Row label="Full name" value={auth.user?.fullName ?? '—'} />
-          <Row label="Institutional email" value={auth.user?.email ?? '—'} />
+          <Row label="Email" value={auth.user?.email ?? '—'} />
           <Row label="Student ID" value={auth.user?.studentId ?? 'Not recorded'} />
           <Row label="Email verified" value={auth.user?.emailVerified ? 'Yes' : 'No'} />
           <Row label="Roles" value={auth.user?.roles.join(', ') || '—'} />
@@ -567,7 +787,7 @@ export function ProfilePage() {
             </p>
           </div>
           {error ? (
-            <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {error}
             </div>
           ) : null}
@@ -590,11 +810,7 @@ export function ProfilePage() {
               required
               error={form.formState.errors.newPassword?.message}
             >
-              <PasswordField
-                id="newPassword"
-                autoComplete="new-password"
-                {...form.register('newPassword')}
-              />
+              <PasswordField id="newPassword" autoComplete="new-password" {...form.register('newPassword')} />
             </FormField>
             <div className="sm:col-span-2">
               <Button type="submit" loading={form.formState.isSubmitting}>
@@ -628,7 +844,7 @@ export function ProfilePage() {
           setDangerOpen(false);
           toast.push({ tone: 'success', title: 'Your account has been deleted' });
           await auth.signOut();
-          navigate('/login', { replace: true });
+          navigate('/', { replace: true });
         }}
       />
     </div>
@@ -699,7 +915,7 @@ function DeleteAccountDialog({
     >
       <form id="delete-account-form" className="space-y-4" onSubmit={submit} noValidate>
         {error ? (
-          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {error}
           </div>
         ) : null}

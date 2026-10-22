@@ -37,6 +37,7 @@ export interface CreateTicketInput {
   assessmentReference?: string | undefined;
   transactionReference?: string | undefined;
   preferredContactMethod?: string | undefined;
+  studentEmail?: string | undefined;
 }
 
 /** Atomically increments the yearly counter and returns a unique reference. */
@@ -216,6 +217,7 @@ export async function createTicket(auth: AuthContext, input: CreateTicketInput):
         assessmentReference: input.assessmentReference ?? null,
         transactionReference: input.transactionReference ?? null,
         preferredContactMethod: input.preferredContactMethod ?? null,
+        studentEmail: input.studentEmail ?? null,
         assignedAt: routing.assignedToId ? now : null,
         lastMeaningfulStaffActionAt: routing.assignedToId ? now : null,
         reminderCycleStartedAt: routing.assignedToId ? now : null,

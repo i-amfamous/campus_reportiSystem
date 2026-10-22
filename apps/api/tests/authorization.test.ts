@@ -36,6 +36,7 @@ describe('authorization boundaries', () => {
     const created = await ownerClient.post('/api/v1/tickets', {
       categoryId: category.id,
       departmentId: department.id,
+      studentEmail: owner.email,
       subject: 'Private academic issue that must stay private',
       description: 'This description contains personal academic information about my record.',
     });
@@ -95,6 +96,7 @@ describe('authorization boundaries', () => {
     const created = await studentClient.post('/api/v1/tickets', {
       categoryId: category.id,
       departmentId: department.id,
+      studentEmail: student.email,
       subject: 'Academic record problem',
       description: 'My grades are not correctly reflected in the academic records system.',
     });
@@ -122,6 +124,7 @@ describe('authorization boundaries', () => {
     const created = await studentClient.post('/api/v1/tickets', {
       categoryId: category.id,
       departmentId: department.id,
+      studentEmail: student.email,
       subject: 'Academic record problem',
       description: 'My grades are not correctly reflected in the academic records system.',
     });
@@ -194,6 +197,7 @@ describe('authorization boundaries', () => {
     const created = await ownerClient.post('/api/v1/tickets', {
       categoryId: category.id,
       departmentId: department.id,
+      studentEmail: owner.email,
       subject: 'Academic record problem with evidence',
       description: 'Attaching a screenshot of the portal showing the missing result.',
     });
@@ -230,6 +234,7 @@ describe('authorization boundaries', () => {
     const created = await ownerClient.post('/api/v1/tickets', {
       categoryId: category.id,
       departmentId: department.id,
+      studentEmail: owner.email,
       subject: 'Academic record problem with a suspicious file',
       description: 'Attaching a file that claims to be a PDF but is not.',
     });

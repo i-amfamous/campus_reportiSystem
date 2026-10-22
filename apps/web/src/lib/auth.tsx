@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { SessionUser } from '../types';
@@ -11,6 +11,7 @@ interface AuthContextValue {
   hasPermission: (permission: string) => boolean;
   isStaff: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -40,13 +41,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
   }, [queryClient]);
 
+  const clearSession = useCallback(() => {
+    queryClient.setQueryData(SESSION_QUERY_KEY, null);
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== SESSION_QUERY_KEY[0],
+    });
+  }, [queryClient]);
+
   const signOut = useCallback(async () => {
     try {
       await api.post('/api/v1/auth/logout');
+    } catch {
+      // Ignore logout errors; we still clear the local session.
     } finally {
-      queryClient.clear();
+      clearSession();
     }
-  }, [queryClient]);
+  }, [clearSession]);
+
+  useEffect(() => {
+    window.addEventListener('campus:unauthorized', clearSession);
+    return () => window.removeEventListener('campus:unauthorized', clearSession);
+  }, [clearSession]);
 
   const value = useMemo<AuthContextValue>(() => {
     const roles = data?.roles ?? [];
@@ -61,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ['OFFICER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN'].includes(role),
       ),
       isAdmin: roles.some((role) => ['ADMIN', 'SUPER_ADMIN'].includes(role)),
+      isSuperAdmin: roles.includes('SUPER_ADMIN'),
       refresh,
       signOut,
     };

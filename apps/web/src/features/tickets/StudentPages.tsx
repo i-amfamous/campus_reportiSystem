@@ -367,6 +367,7 @@ export function NewTicketPage() {
       semester: '',
       assessmentReference: '',
       transactionReference: '',
+      studentEmail: '',
       preferredContactMethod: 'EMAIL',
     },
   });
@@ -547,6 +548,16 @@ export function NewTicketPage() {
                 />
               </FormField>
             ) : null}
+
+            <FormField
+              label="Student email (mandatory)"
+              htmlFor="studentEmail"
+              required
+              error={form.formState.errors.studentEmail?.message}
+              hint="Enter your student email address. This will be attached to your report."
+            >
+              <Input id="studentEmail" type="email" autoComplete="email" {...form.register('studentEmail')} />
+            </FormField>
 
             <FormField
               label="Subject"

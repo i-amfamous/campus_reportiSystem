@@ -15,11 +15,12 @@ export interface AuthContext {
   fullName: string;
   studentId: string | null;
   emailVerified: boolean;
-  accountStatus: 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'DEACTIVATED';
+  accountStatus: 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'DEACTIVATED' | 'MUST_CHANGE_PASSWORD';
   roles: RoleName[];
   permissions: Set<PermissionKey>;
   departments: DepartmentScope[];
   lastLoginAt: Date | null;
+  mustChangePassword?: boolean;
 }
 
 declare global {

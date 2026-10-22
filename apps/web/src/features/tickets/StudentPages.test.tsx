@@ -119,6 +119,7 @@ describe('NewTicketPage', () => {
       screen.getByLabelText(/Issue category/),
       '44444444-4444-4444-8444-444444444444',
     );
+    await user.type(screen.getByLabelText(/Student email \(mandatory\)/), 'student@example.com');
     await user.type(screen.getByLabelText(/Subject/), 'Missing examination result for CS201');
     await user.type(
       screen.getByLabelText(/Detailed description/),

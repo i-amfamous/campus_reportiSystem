@@ -1,5 +1,5 @@
 import type { User } from '@prisma/client';
-import { normalizeEmail, STUDENT_EMAIL_LOCAL_PART } from '@campus-resolve/shared';
+import { normalizeEmail } from '@campus-resolve/shared';
 import { prisma } from '../../lib/prisma';
 import { clock } from '../../config/clock';
 import { getConfig } from '../../config/env';
@@ -9,11 +9,10 @@ import {
   badRequest,
   conflict,
   emailNotVerified,
-  forbidden,
   notFound,
   unauthenticated,
 } from '../../lib/errors';
-import { generateToken, hashPassword, hashToken, verifyPassword } from '../../lib/crypto';
+import { generateToken, hashPassword, hashToken, safeCompare, verifyPassword } from '../../lib/crypto';
 import { queueNotification } from '../notifications/notification.service';
 import { createSession, revokeSession } from './session.service';
 import type { AuthContext } from './auth.types';
@@ -22,6 +21,15 @@ const VERIFICATION_TTL_MS = 24 * 3_600_000;
 const RESET_TTL_MS = 60 * 60_000;
 const MAX_FAILED_LOGINS = 8;
 const LOCK_DURATION_MS = 15 * 60_000;
+
+/** Generates a 6-digit numeric one-time code sent to the user's email. */
+function generateOtp(): string {
+  let otp = '';
+  for (let i = 0; i < 6; i += 1) {
+    otp += String(Math.floor(Math.random() * 10));
+  }
+  return otp;
+}
 
 export interface RegisterInput {
   fullName: string;
@@ -35,20 +43,6 @@ export interface RequestMeta {
   userAgent?: string | undefined;
 }
 
-function isInstitutionalDomain(email: string): boolean {
-  const config = getConfig();
-  const domain = normalizeEmail(email).split('@')[1] ?? '';
-  return config.INSTITUTION_EMAIL_DOMAINS.some(
-    (allowed) => allowed.toLowerCase() === domain.toLowerCase(),
-  );
-}
-
-/** Derives the student identifier from the numeric local part of the email. */
-function deriveStudentId(email: string): string | null {
-  const local = normalizeEmail(email).split('@')[0] ?? '';
-  return STUDENT_EMAIL_LOCAL_PART.test(local) ? local : null;
-}
-
 /**
  * Student self-registration.
  *
@@ -58,22 +52,16 @@ function deriveStudentId(email: string): string | null {
  */
 export async function registerStudent(
   input: RegisterInput,
-): Promise<{ user: User; token: string }> {
+): Promise<{ user: User; otp: string }> {
   const config = getConfig();
   const email = normalizeEmail(input.email);
-
-  if (!isInstitutionalDomain(email)) {
-    throw badRequest(
-      `Registration requires an institutional email address (${config.INSTITUTION_EMAIL_DOMAINS.join(', ')}).`,
-    );
-  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw conflict('An account already exists for this email address.');
   }
 
-  const studentId = input.studentId?.trim() || deriveStudentId(email);
+  const studentId = input.studentId?.trim();
   if (studentId) {
     const existingStudent = await prisma.user.findUnique({ where: { studentId } });
     if (existingStudent) {
@@ -82,7 +70,7 @@ export async function registerStudent(
   }
 
   const passwordHash = await hashPassword(input.password);
-  const token = generateToken();
+  const otp = generateOtp();
   const now = clock.now();
 
   const user = await prisma.$transaction(async (tx) => {
@@ -104,7 +92,7 @@ export async function registerStudent(
     await tx.emailVerificationToken.create({
       data: {
         userId: created.id,
-        tokenHash: hashToken(token, config.SESSION_SECRET),
+        tokenHash: hashToken(otp, config.SESSION_SECRET),
         expiresAt: new Date(now.getTime() + VERIFICATION_TTL_MS),
       },
     });
@@ -114,7 +102,7 @@ export async function registerStudent(
         recipientId: created.id,
         type: 'EMAIL_VERIFICATION',
         idempotencyKey: `email-verification:${created.id}`,
-        payload: { token, detail: 'Please verify your institutional email address.' },
+        payload: { otp, detail: 'Please verify your email address.' },
       },
       tx,
     );
@@ -122,58 +110,75 @@ export async function registerStudent(
     return created;
   });
 
-  return { user, token };
+  return { user, otp };
 }
 
-/** Verifies an email address and activates the account. */
-export async function verifyEmail(token: string): Promise<{ email: string; fullName: string }> {
+/** Verifies a one-time code sent to the user's email and activates the account. */
+export async function verifyOtp(
+  email: string,
+  otp: string,
+): Promise<{ email: string; fullName: string }> {
   const config = getConfig();
-  const tokenHash = hashToken(token, config.SESSION_SECRET);
-  const record = await prisma.emailVerificationToken.findUnique({ where: { tokenHash } });
+  const normalized = normalizeEmail(email);
+  const user = await prisma.user.findUnique({ where: { email: normalized } });
+
+  const genericFailure = badRequest('The verification code is incorrect or has expired.');
+
+  if (!user) throw genericFailure;
+  if (user.emailVerifiedAt) throw genericFailure;
+
+  const record = await prisma.emailVerificationToken.findFirst({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' },
+  });
 
   if (!record || record.usedAt || record.expiresAt.getTime() <= clock.nowMs()) {
-    throw badRequest('This verification link is invalid or has expired.');
+    throw genericFailure;
+  }
+
+  const expected = hashToken(otp, config.SESSION_SECRET);
+  if (!safeCompare(record.tokenHash, expected)) {
+    throw genericFailure;
   }
 
   const now = clock.now();
-  const user = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     await tx.emailVerificationToken.update({
       where: { id: record.id },
       data: { usedAt: now },
     });
-    const updated = await tx.user.update({
-      where: { id: record.userId },
+    const u = await tx.user.update({
+      where: { id: user.id },
       data: { emailVerifiedAt: now, accountStatus: 'ACTIVE' },
     });
     await queueNotification(
       {
-        recipientId: updated.id,
+        recipientId: u.id,
         type: 'REGISTRATION_CONFIRMED',
-        idempotencyKey: `registration-confirmed:${updated.id}`,
+        idempotencyKey: `registration-confirmed:${u.id}`,
         payload: {},
       },
       tx,
     );
-    return updated;
+    return u;
   });
 
-  return { email: user.email, fullName: user.fullName };
+  return { email: updated.email, fullName: updated.fullName };
 }
 
-/** Re-sends the verification email. Always succeeds to avoid account probing. */
+/** Re-sends the verification OTP. Always succeeds to avoid account probing. */
 export async function resendVerification(email: string): Promise<void> {
   const config = getConfig();
   const normalized = normalizeEmail(email);
   const user = await prisma.user.findUnique({ where: { email: normalized } });
   if (!user || user.emailVerifiedAt) return;
-  if (!isInstitutionalDomain(normalized)) return;
 
-  const token = generateToken();
+  const otp = generateOtp();
   await prisma.$transaction(async (tx) => {
     await tx.emailVerificationToken.create({
       data: {
         userId: user.id,
-        tokenHash: hashToken(token, config.SESSION_SECRET),
+        tokenHash: hashToken(otp, config.SESSION_SECRET),
         expiresAt: new Date(clock.nowMs() + VERIFICATION_TTL_MS),
       },
     });
@@ -181,8 +186,8 @@ export async function resendVerification(email: string): Promise<void> {
       {
         recipientId: user.id,
         type: 'EMAIL_VERIFICATION',
-        idempotencyKey: `email-verification-resend:${user.id}:${token.slice(0, 8)}`,
-        payload: { token },
+        idempotencyKey: `email-verification-resend:${user.id}:${otp.slice(0, 4)}`,
+        payload: { otp },
       },
       tx,
     );
@@ -240,13 +245,13 @@ export async function login(
     throw genericFailure;
   }
 
-  if (!user.emailVerifiedAt) {
+  if (!user.emailVerifiedAt && user.accountStatus !== 'MUST_CHANGE_PASSWORD' && !(user as any).mustChangePassword) {
     throw emailNotVerified();
   }
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: clock.now() },
+    data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: clock.now(), mustChangePassword: false },
   });
 
   const session = await createSession(user.id, meta);
@@ -256,7 +261,8 @@ export async function login(
     sessionToken: session.sessionToken,
     csrfToken: session.csrfToken,
     expiresAt: session.expiresAt,
-  };
+    mustChangePassword: user.accountStatus === 'MUST_CHANGE_PASSWORD' || (user as any).mustChangePassword || false,
+  } as any;
 }
 
 export async function logout(sessionId: string): Promise<void> {
@@ -306,7 +312,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
     await tx.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: clock.now() } });
     await tx.user.update({
       where: { id: record.userId },
-      data: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+      data: { passwordHash, failedLoginCount: 0, lockedUntil: null, mustChangePassword: false },
     });
     await tx.session.updateMany({
       where: { userId: record.userId, revokedAt: null },
@@ -328,7 +334,7 @@ export async function changePassword(
   const passwordHash = await hashPassword(newPassword);
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+    data: { passwordHash, failedLoginCount: 0, lockedUntil: null, mustChangePassword: false },
   });
 }
 
@@ -416,6 +422,7 @@ export function toSessionUser(auth: AuthContext) {
     })),
     lastLoginAt: auth.lastLoginAt,
     createdAt: new Date().toISOString(),
+    mustChangePassword: (auth as any).mustChangePassword ?? false,
   };
 }
 

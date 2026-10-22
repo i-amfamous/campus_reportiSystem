@@ -149,10 +149,9 @@ export async function inviteUser(
         fullName: input.fullName.trim(),
         email,
         passwordHash: await hashPassword(temporaryPassword),
-        // An administrator who sets a password vouches for the address, so the
-        // account starts active. Otherwise it waits for the invitation.
         accountStatus: password ? 'ACTIVE' : 'PENDING_VERIFICATION',
         emailVerifiedAt: password ? now : null,
+        mustChangePassword: password ? true : false,
         invitedById: auth.userId,
         roles: { create: { roleId: role.id, grantedById: auth.userId } },
         ...(input.departmentId
@@ -313,6 +312,67 @@ export async function updateUserRole(
   );
 
   return { userId, role };
+}
+
+export async function resetUserPassword(
+  auth: AuthContext,
+  userId: string,
+  options: { temporaryPassword?: string | undefined } = {},
+  meta: RequestMeta = {},
+) {
+  if (!auth.permissions.has('user:manage')) {
+    throw forbidden('You are not authorised to reset passwords.');
+  }
+  const target = await prisma.user.findUnique({ where: { id: userId }, include: { roles: { include: { role: true } } } });
+  if (!target) throw notFound('User not found.');
+  if (target.id === auth.userId)
+    throw badRequest('You cannot reset the password of your own account.');
+
+  const tempPassword = options.temporaryPassword?.trim() || generateToken(12);
+  const passwordHash = await hashPassword(tempPassword);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        accountStatus: target.accountStatus === 'DEACTIVATED' ? target.accountStatus : 'ACTIVE',
+        emailVerifiedAt: target.emailVerifiedAt ?? clock.now(),
+        mustChangePassword: true,
+      },
+    });
+    await tx.session.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: clock.now() },
+    });
+    await queueNotification(
+      {
+        recipientId: userId,
+        type: 'ACCOUNT_CREDENTIALS',
+        idempotencyKey: `account-credentials-reset:${userId}:${clock.nowMs()}`,
+        payload: {
+          email: target.email,
+          password: tempPassword,
+          role: (target.roles?.[0]?.role?.name as string) ?? 'STAFF',
+          roleLabel: (target.roles?.[0]?.role?.name as string) ?? 'Staff',
+        },
+      },
+      tx,
+    );
+  });
+
+  await writeAudit(
+    auth,
+    'USER_PASSWORD_RESET',
+    'User',
+    userId,
+    { forced: true },
+    meta,
+  );
+
+  return { userId, email: target.email, temporaryPassword: tempPassword };
 }
 
 export async function updateUserStatus(

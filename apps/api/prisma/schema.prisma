@@ -19,6 +19,7 @@ enum AccountStatus {
   ACTIVE
   SUSPENDED
   DEACTIVATED
+  MUST_CHANGE_PASSWORD
 }
 
 enum TicketStatus {
@@ -162,6 +163,7 @@ model User {
   failedLoginCount Int          @default(0)
   lockedUntil     DateTime?
   lastLoginAt     DateTime?
+  mustChangePassword Boolean    @default(false)
   invitedById     String?       @db.Uuid
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -411,6 +413,7 @@ model Ticket {
   transactionReference String? @db.VarChar(64)
   preferredContactMethod String? @db.VarChar(16)
   contactPhone      String? @db.VarChar(32)
+  studentEmail      String? @db.VarChar(254)
 
   // Service target tracking
   firstResponseAt  DateTime?

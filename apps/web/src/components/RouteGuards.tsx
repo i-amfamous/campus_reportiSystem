@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { LoadingState, ErrorState } from './ui';
+import { LoadingState } from './ui';
 
 /** Requires an authenticated session. */
 export function ProtectedRoute() {
@@ -9,23 +9,31 @@ export function ProtectedRoute() {
 
   if (auth.isLoading) return <LoadingState label="Checking your session…" />;
   if (!auth.isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
+    );
   }
   return <Outlet />;
 }
 
-/** Requires a verified institutional email address. */
+/** Requires a verified email address. */
 export function VerifiedEmailRoute() {
   const auth = useAuth();
+  const location = useLocation();
   if (auth.isLoading) return <LoadingState />;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
   if (auth.user && !auth.user.emailVerified) {
-    return (
-      <ErrorState
-        title="Verify your institutional email address"
-        description="Your account must be verified before you can submit or manage reports."
-      />
-    );
+    if (auth.hasRole('SUPER_ADMIN') || auth.hasRole('ADMIN')) {
+      return <Navigate to="/admin/dashboard" replace state={{ from: location.pathname + location.search }} />;
+    }
+    if (auth.isStaff) {
+      return <Navigate to="/staff" replace state={{ from: location.pathname + location.search }} />;
+    }
+    return <Navigate to="/dashboard" replace state={{ from: location.pathname + location.search }} />;
   }
   return <Outlet />;
 }
@@ -33,15 +41,18 @@ export function VerifiedEmailRoute() {
 /** Requires one of the given roles. */
 export function RoleRoute({ roles }: { roles: string[] }) {
   const auth = useAuth();
+  const location = useLocation();
   if (auth.isLoading) return <LoadingState />;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
   if (!auth.hasRole(...roles)) {
-    return (
-      <ErrorState
-        title="You do not have access to this area"
-        description="Your account does not hold the role required for this page. Ask an administrator if you believe this is wrong."
-      />
-    );
+    // Administrators can fall back to their dashboard instead of being blocked.
+    if (auth.hasRole('SUPER_ADMIN') || auth.hasRole('ADMIN')) {
+      return <Navigate to="/admin/dashboard" replace state={{ from: location.pathname + location.search }} />;
+    }
+    if (auth.isStaff) {
+      return <Navigate to="/staff" replace state={{ from: location.pathname + location.search }} />;
+    }
+    return <Navigate to="/dashboard" replace state={{ from: location.pathname + location.search }} />;
   }
   return <Outlet />;
 }
@@ -49,15 +60,17 @@ export function RoleRoute({ roles }: { roles: string[] }) {
 /** Requires a permission key. */
 export function PermissionRoute({ permission }: { permission: string }) {
   const auth = useAuth();
+  const location = useLocation();
   if (auth.isLoading) return <LoadingState />;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
   if (!auth.hasPermission(permission)) {
-    return (
-      <ErrorState
-        title="You do not have access to this area"
-        description="Your account does not hold the permission required for this page."
-      />
-    );
+    if (auth.hasRole('SUPER_ADMIN') || auth.hasRole('ADMIN')) {
+      return <Navigate to="/admin/dashboard" replace state={{ from: location.pathname + location.search }} />;
+    }
+    if (auth.isStaff) {
+      return <Navigate to="/staff" replace state={{ from: location.pathname + location.search }} />;
+    }
+    return <Navigate to="/dashboard" replace state={{ from: location.pathname + location.search }} />;
   }
   return <Outlet />;
 }

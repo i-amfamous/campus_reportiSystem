@@ -186,28 +186,25 @@ export function renderEmail(type: NotificationType, ctx: TemplateContext): Rende
 
   switch (type) {
     case 'EMAIL_VERIFICATION': {
-      const link = `${ctx.appUrl}/verify-email?token=${encodeURIComponent(ctx.token ?? '')}`;
       textParts.push(
         `Hello ${ctx.recipientName},`,
         '',
-        'Confirm your institutional email address to activate your Campus Resolve account.',
+        'Confirm your email address to activate your Campus Resolve account.',
         '',
-        `Verification link: ${link}`,
+        `Your verification code is: ${ctx.token ?? ''}`,
         '',
-        'The link expires in 24 hours. If you did not request an account, ignore this message.',
+        'The code expires in 24 hours. If you did not request an account, ignore this message.',
       );
       htmlParts.push(
         `<p>Hello ${escapeHtml(ctx.recipientName)},</p>
-         <p>Confirm your institutional email address to activate your Campus Resolve account.</p>
-         <p style="font-size:12px;color:#64748b">This link expires in 24 hours.</p>`,
+         <p>Confirm your email address to activate your Campus Resolve account.</p>
+         <p style="font-size:16px;font-weight:600;letter-spacing:2px;background:#f1f5f9;padding:12px;border-radius:8px;text-align:center">${escapeHtml(ctx.token ?? '')}</p>
+         <p style="font-size:12px;color:#64748b">This code expires in 24 hours.</p>`,
       );
       return {
         subject,
         text: textParts.join('\n'),
-        html: layout(
-          { ...ctx, actionUrl: link, actionLabel: 'Verify my email address' },
-          htmlParts.join(''),
-        ),
+        html: layout(ctx, htmlParts.join('')),
       };
     }
 
@@ -284,9 +281,9 @@ export function renderEmail(type: NotificationType, ctx: TemplateContext): Rende
          <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px">
            ${credentials
              .map(
-               ([label, value]) =>
+                 ([label, value]) =>
                  `<tr><td style="padding:6px 12px 6px 0;color:#64748b;white-space:nowrap;vertical-align:top">${escapeHtml(label)}</td>
-                  <td style="padding:6px 0;color:#0f172a;font-weight:600">${escapeHtml(value)}</td></tr>`,
+                  <td style="padding:6px 0;color:#0f172a;font-weight:600">${escapeHtml(value === undefined || value === null ? '' : value)}</td></tr>`,
              )
              .join('')}
          </table>

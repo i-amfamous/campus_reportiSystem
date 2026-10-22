@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AccountStatus" ADD VALUE 'MUST_CHANGE_PASSWORD';

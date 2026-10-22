@@ -59,6 +59,7 @@ async function createAssignedTicket(fixture: Fixture): Promise<string> {
     categoryId: fixture.category.id,
     departmentId: fixture.department.id,
     assignedToId: fixture.officer.id,
+    studentEmail: fixture.student.email,
     subject: 'Examination results missing from the portal',
     description: 'My semester results were never uploaded to the student portal.',
   });
@@ -409,6 +410,7 @@ describe('two-hour reminder system', () => {
     const response = await client.post('/api/v1/tickets', {
       categoryId: fixture.category.id,
       departmentId: fixture.department.id,
+      studentEmail: fixture.student.email,
       subject: 'Queued report without an assigned officer',
       description: 'This report goes to the department queue and has no owner yet.',
     });

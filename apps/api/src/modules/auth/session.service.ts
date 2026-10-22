@@ -78,6 +78,7 @@ export async function resolveSession(sessionToken: string): Promise<ResolvedSess
   if (session.revokedAt) return null;
   if (session.expiresAt.getTime() <= clock.nowMs()) return null;
   if (session.user.accountStatus === 'DEACTIVATED') return null;
+  if (session.user.accountStatus === 'SUSPENDED') return null;
 
   const roles = session.user.roles.map((entry) => entry.role.name as RoleName);
   const permissions = new Set<PermissionKey>();
@@ -92,16 +93,17 @@ export async function resolveSession(sessionToken: string): Promise<ResolvedSess
     fullName: session.user.fullName,
     studentId: session.user.studentId,
     emailVerified: session.user.emailVerifiedAt !== null,
-    accountStatus: session.user.accountStatus,
+    accountStatus: session.user.accountStatus as AuthContext['accountStatus'],
     roles,
     permissions,
     departments: session.user.memberships.map((membership) => ({
-      departmentId: membership.departmentId,
+      departmentId: membership.department.id,
       departmentName: membership.department.name,
       departmentRole: membership.departmentRole,
       isActive: membership.isActive,
     })),
     lastLoginAt: session.user.lastLoginAt,
+    mustChangePassword: (session.user as any).mustChangePassword ?? false,
   };
 
   return { auth, sessionTokenHash: tokenHash };

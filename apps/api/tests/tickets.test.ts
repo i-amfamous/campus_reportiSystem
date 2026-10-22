@@ -75,6 +75,7 @@ async function createTicketAsStudent(
   const response = await client.post('/api/v1/tickets', {
     categoryId: fixture.category.id,
     departmentId: fixture.department.id,
+    studentEmail: fixture.student.email,
     subject: 'My examination results are missing from the portal',
     description:
       'My semester results were not uploaded to the student portal and I need them for registration.',
@@ -169,6 +170,7 @@ describe('ticket lifecycle', () => {
     const response = await student.post('/api/v1/tickets', {
       categoryId: emptyCategory.id,
       departmentId: emptyDepartment.id,
+      studentEmail: fixture.student.email,
       subject: 'I do not know who handles this problem',
       description: 'This report has been sent because I could not find the correct office for it.',
     });

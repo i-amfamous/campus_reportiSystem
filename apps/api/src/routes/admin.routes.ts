@@ -96,6 +96,15 @@ adminRouter.patch(
   },
 );
 
+adminRouter.post(
+  '/users/:id/reset-password',
+  requirePermission('user:manage'),
+  async (req, res) => {
+    const result = await adminService.resetUserPassword(req.auth!, req.params.id!, {}, requestMeta(req));
+    res.json(result);
+  },
+);
+
 /**
  * Danger Zone (administrator): erase somebody else's account.
  *

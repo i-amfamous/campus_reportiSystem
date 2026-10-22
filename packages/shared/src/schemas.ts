@@ -69,10 +69,16 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const verifyEmailSchema = z.object({
-  token: z.string().min(10, 'Invalid verification token').max(512),
+export const verifyOtpSchema = z.object({
+  email: emailSchema,
+  otp: z
+    .string()
+    .trim()
+    .min(6, 'Verification code must be 6 digits')
+    .max(6, 'Verification code must be 6 digits')
+    .regex(/^[0-9]{6}$/, 'Verification code must be 6 digits'),
 });
-export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 
 /**
  * A staff member accepts an administrator's invitation and chooses their own
@@ -168,6 +174,7 @@ export const createTicketSchema = z.object({
   semester: z.string().trim().max(64).optional(),
   assessmentReference: z.string().trim().max(64).optional(),
   transactionReference: z.string().trim().max(64).optional(),
+  studentEmail: emailSchema,
   preferredContactMethod: z.enum(['EMAIL', 'PHONE', 'IN_PERSON']).optional(),
 });
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;

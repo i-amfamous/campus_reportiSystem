@@ -32,21 +32,21 @@ describe('authentication', () => {
   });
 
   describe('registration', () => {
-    it('accepts an institutional student email and issues a verification email', async () => {
+    it('accepts a regular student email and issues a verification OTP', async () => {
       const response = await client.post('/api/v1/auth/register', {
         fullName: 'Ama Mensah',
-        email: '10234567@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: TEST_PASSWORD,
         acceptTerms: true,
       });
 
       expect(response.status).toBe(201);
-      expect(response.body.email).toBe('10234567@live.gctu.edu.gh');
+      expect(response.body.email).toBe('ama@example.com');
       expect(response.body.emailVerified).toBe(false);
 
-      const user = await prisma.user.findUnique({ where: { email: '10234567@live.gctu.edu.gh' } });
+      const user = await prisma.user.findUnique({ where: { email: 'ama@example.com' } });
       expect(user).not.toBeNull();
-      expect(user?.studentId).toBe('10234567');
+      expect(user?.studentId).toBeNull();
       expect(user?.accountStatus).toBe('PENDING_VERIFICATION');
       expect(user?.passwordHash).toBeTruthy();
       expect(user?.passwordHash).not.toContain(TEST_PASSWORD);
@@ -59,27 +59,27 @@ describe('authentication', () => {
 
       const notification = await latestNotification('EMAIL_VERIFICATION');
       expect(notification).not.toBeNull();
-      expect((notification!.payload as { token?: string }).token).toBeTruthy();
+      expect((notification!.payload as { otp?: string }).otp).toMatch(/^[0-9]{6}$/);
     });
 
-    it('rejects an email address outside the institutional domain', async () => {
+    it('accepts an email address with a numeric local part but does not derive a student ID', async () => {
       const response = await client.post('/api/v1/auth/register', {
-        fullName: 'Impostor',
-        email: 'someone@gmail.com',
+        fullName: 'Kwame Asare',
+        email: '10234567@example.com',
         password: TEST_PASSWORD,
         acceptTerms: true,
       });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('VALIDATION_ERROR');
-      expect(await prisma.user.count()).toBe(0);
+      expect(response.status).toBe(201);
+      const user = await prisma.user.findUnique({ where: { email: '10234567@example.com' } });
+      expect(user?.studentId).toBeNull();
     });
 
     it('rejects a duplicate registration', async () => {
-      await createUser({ email: '10234567@live.gctu.edu.gh', roles: ['STUDENT'] });
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
       const response = await client.post('/api/v1/auth/register', {
         fullName: 'Ama Mensah',
-        email: '10234567@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: TEST_PASSWORD,
         acceptTerms: true,
       });
@@ -91,7 +91,7 @@ describe('authentication', () => {
     it('never accepts a privileged role from the registration payload', async () => {
       const response = await client.post('/api/v1/auth/register', {
         fullName: 'Sneaky Admin',
-        email: '10234568@live.gctu.edu.gh',
+        email: 'sneaky@example.com',
         password: TEST_PASSWORD,
         acceptTerms: true,
         role: 'SUPER_ADMIN',
@@ -101,7 +101,7 @@ describe('authentication', () => {
 
       expect(response.status).toBe(201);
       const user = await prisma.user.findUnique({
-        where: { email: '10234568@live.gctu.edu.gh' },
+        where: { email: 'sneaky@example.com' },
         include: { roles: { include: { role: true } } },
       });
       expect(user?.roles.map((role) => role.role.name)).toEqual(['STUDENT']);
@@ -109,76 +109,78 @@ describe('authentication', () => {
     });
   });
 
-  describe('email verification', () => {
-    it('activates the account when the link is used', async () => {
+  describe('OTP verification', () => {
+    it('activates the account when the OTP is used', async () => {
       await client.post('/api/v1/auth/register', {
         fullName: 'Ama Mensah',
-        email: '10234567@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: TEST_PASSWORD,
         acceptTerms: true,
       });
       const notification = await latestNotification('EMAIL_VERIFICATION');
-      const token = (notification!.payload as { token: string }).token;
+      const otp = (notification!.payload as { otp: string }).otp;
 
-      const response = await client.post('/api/v1/auth/verify-email', { token });
+      const response = await client.post('/api/v1/auth/verify-otp', {
+        email: 'ama@example.com',
+        otp,
+      });
       expect(response.status).toBe(200);
       expect(response.body.verified).toBe(true);
 
-      const user = await prisma.user.findUnique({ where: { email: '10234567@live.gctu.edu.gh' } });
+      const user = await prisma.user.findUnique({ where: { email: 'ama@example.com' } });
       expect(user?.emailVerifiedAt).not.toBeNull();
       expect(user?.accountStatus).toBe('ACTIVE');
     });
 
-    it('rejects an expired verification link', async () => {
-      const user = await createUser({
-        email: '10234569@live.gctu.edu.gh',
-        roles: ['STUDENT'],
-        emailVerified: false,
-      });
-      const { hashToken } = await import('../src/lib/crypto');
-      const { getConfig } = await import('../src/config/env');
-      const token = 'expired-token-value';
-      await prisma.emailVerificationToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashToken(token, getConfig().SESSION_SECRET),
-          expiresAt: new Date(clock.nowMs() - 60_000),
-        },
+    it('rejects an incorrect OTP', async () => {
+      await client.post('/api/v1/auth/register', {
+        fullName: 'Ama Mensah',
+        email: 'ama@example.com',
+        password: TEST_PASSWORD,
+        acceptTerms: true,
       });
 
-      const response = await client.post('/api/v1/auth/verify-email', { token });
+      const response = await client.post('/api/v1/auth/verify-otp', {
+        email: 'ama@example.com',
+        otp: '000000',
+      });
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
+
+      const user = await prisma.user.findUnique({ where: { email: 'ama@example.com' } });
+      expect(user?.accountStatus).toBe('PENDING_VERIFICATION');
     });
 
-    it('rejects reuse of a verification token', async () => {
-      const user = await createUser({
-        email: '10234570@live.gctu.edu.gh',
-        roles: ['STUDENT'],
-        emailVerified: false,
+    it('rejects OTP for an unknown email', async () => {
+      const response = await client.post('/api/v1/auth/verify-otp', {
+        email: 'nobody@example.com',
+        otp: '123456',
       });
-      const { hashToken } = await import('../src/lib/crypto');
-      const { getConfig } = await import('../src/config/env');
-      const token = 'single-use-token-value';
-      await prisma.emailVerificationToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashToken(token, getConfig().SESSION_SECRET),
-          expiresAt: new Date(clock.nowMs() + 3_600_000),
-        },
-      });
+      expect(response.status).toBe(400);
+    });
 
-      expect((await client.post('/api/v1/auth/verify-email', { token })).status).toBe(200);
-      expect((await client.post('/api/v1/auth/verify-email', { token })).status).toBe(400);
+    it('rejects reuse of a verification OTP', async () => {
+      await client.post('/api/v1/auth/register', {
+        fullName: 'Ama Mensah',
+        email: 'ama@example.com',
+        password: TEST_PASSWORD,
+        acceptTerms: true,
+      });
+      const notification = await latestNotification('EMAIL_VERIFICATION');
+      const otp = (notification!.payload as { otp: string }).otp;
+
+      await client.post('/api/v1/auth/verify-otp', { email: 'ama@example.com', otp });
+      const response = await client.post('/api/v1/auth/verify-otp', { email: 'ama@example.com', otp });
+      expect(response.status).toBe(400);
     });
   });
 
   describe('login and logout', () => {
     it('signs a verified student in and issues session cookies', async () => {
-      await createUser({ email: '10234571@live.gctu.edu.gh', roles: ['STUDENT'] });
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
 
       const response = await client.post('/api/v1/auth/login', {
-        email: '10234571@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: TEST_PASSWORD,
       });
 
@@ -189,19 +191,19 @@ describe('authentication', () => {
 
       const me = await client.get('/api/v1/auth/me');
       expect(me.status).toBe(200);
-      expect(me.body.user.email).toBe('10234571@live.gctu.edu.gh');
+      expect(me.body.user.email).toBe('ama@example.com');
       expect(me.body.user.roles).toEqual(['STUDENT']);
     });
 
     it('rejects an incorrect password without revealing whether the account exists', async () => {
-      await createUser({ email: '10234572@live.gctu.edu.gh', roles: ['STUDENT'] });
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
 
       const wrongPassword = await client.post('/api/v1/auth/login', {
-        email: '10234572@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: 'WrongPassword!1',
       });
       const unknownUser = await client.post('/api/v1/auth/login', {
-        email: '99999999@live.gctu.edu.gh',
+        email: '99999999@example.com',
         password: 'WrongPassword!1',
       });
 
@@ -212,12 +214,12 @@ describe('authentication', () => {
 
     it('blocks sign-in for an unverified account', async () => {
       await createUser({
-        email: '10234573@live.gctu.edu.gh',
+        email: 'ama@example.com',
         roles: ['STUDENT'],
         emailVerified: false,
       });
       const response = await client.post('/api/v1/auth/login', {
-        email: '10234573@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: TEST_PASSWORD,
       });
       expect(response.status).toBe(403);
@@ -226,12 +228,12 @@ describe('authentication', () => {
 
     it('blocks sign-in for a suspended account', async () => {
       await createUser({
-        email: '10234574@live.gctu.edu.gh',
+        email: 'ama@example.com',
         roles: ['STUDENT'],
         accountStatus: 'SUSPENDED',
       });
       const response = await client.post('/api/v1/auth/login', {
-        email: '10234574@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: TEST_PASSWORD,
       });
       expect(response.status).toBe(403);
@@ -239,8 +241,8 @@ describe('authentication', () => {
     });
 
     it('revokes the session on logout', async () => {
-      await createUser({ email: '10234575@live.gctu.edu.gh', roles: ['STUDENT'] });
-      await client.login('10234575@live.gctu.edu.gh', TEST_PASSWORD);
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
+      await client.login('ama@example.com', TEST_PASSWORD);
       expect((await client.get('/api/v1/auth/me')).status).toBe(200);
 
       expect((await client.post('/api/v1/auth/logout')).status).toBe(200);
@@ -248,8 +250,8 @@ describe('authentication', () => {
     });
 
     it('rejects state-changing requests without a CSRF token', async () => {
-      await createUser({ email: '10234576@live.gctu.edu.gh', roles: ['STUDENT'] });
-      await client.login('10234576@live.gctu.edu.gh', TEST_PASSWORD);
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
+      await client.login('ama@example.com', TEST_PASSWORD);
 
       client.setCsrfEnabled(false);
       const response = await client.request('post', '/api/v1/auth/logout');
@@ -262,10 +264,10 @@ describe('authentication', () => {
 
   describe('password reset', () => {
     it('sends a reset link and allows the password to be changed', async () => {
-      await createUser({ email: '10234577@live.gctu.edu.gh', roles: ['STUDENT'] });
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
 
       const request = await client.post('/api/v1/auth/forgot-password', {
-        email: '10234577@live.gctu.edu.gh',
+        email: 'ama@example.com',
       });
       expect(request.status).toBe(200);
 
@@ -279,14 +281,14 @@ describe('authentication', () => {
       expect(reset.status).toBe(200);
 
       const signIn = await client.post('/api/v1/auth/login', {
-        email: '10234577@live.gctu.edu.gh',
+        email: 'ama@example.com',
         password: 'NewStr0ng!Password',
       });
       expect(signIn.status).toBe(200);
     });
 
     it('rejects an expired reset token', async () => {
-      const user = await createUser({ email: '10234578@live.gctu.edu.gh', roles: ['STUDENT'] });
+      const user = await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
       const { hashToken } = await import('../src/lib/crypto');
       const { getConfig } = await import('../src/config/env');
       const token = 'expired-reset-token';
@@ -306,14 +308,14 @@ describe('authentication', () => {
     });
 
     it('revokes existing sessions when the password is reset', async () => {
-      await createUser({ email: '10234579@live.gctu.edu.gh', roles: ['STUDENT'] });
-      await client.login('10234579@live.gctu.edu.gh', TEST_PASSWORD);
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
+      await client.login('ama@example.com', TEST_PASSWORD);
       expect((await client.get('/api/v1/auth/me')).status).toBe(200);
 
       await prisma.passwordResetToken.create({
         data: {
           userId: (
-            await prisma.user.findUniqueOrThrow({ where: { email: '10234579@live.gctu.edu.gh' } })
+            await prisma.user.findUniqueOrThrow({ where: { email: 'ama@example.com' } })
           ).id,
           tokenHash: 'irrelevant',
           expiresAt: new Date(clock.nowMs() + 60_000),
@@ -327,12 +329,12 @@ describe('authentication', () => {
 
   describe('rate limiting', () => {
     it('rate limits repeated sign-in attempts', async () => {
-      await createUser({ email: '10234580@live.gctu.edu.gh', roles: ['STUDENT'] });
+      await createUser({ email: 'ama@example.com', roles: ['STUDENT'] });
 
       let limited = false;
       for (let attempt = 0; attempt < 20; attempt += 1) {
         const response = await client.post('/api/v1/auth/login', {
-          email: '10234580@live.gctu.edu.gh',
+          email: 'ama@example.com',
           password: 'WrongPassword!1',
         });
         if (response.status === 429) {

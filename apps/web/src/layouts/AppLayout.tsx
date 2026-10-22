@@ -112,7 +112,7 @@ export function AppLayout() {
 
   const handleSignOut = async () => {
     await auth.signOut();
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   };
 
   const nav = (
@@ -176,9 +176,9 @@ export function AppLayout() {
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-semibold tracking-tight text-slate-900">
+              <NavLink to="/" className="text-sm font-semibold tracking-tight text-slate-900">
                 Campus Resolve
-              </span>
+              </NavLink>
               <span className="hidden text-xs text-slate-500 sm:inline">
                 Student Academic Issue Reporting
               </span>
@@ -221,7 +221,9 @@ export function AppLayout() {
             />
             <div className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-xl">
               <div className="sticky top-0 flex h-14 items-center justify-between border-b border-slate-200 px-4">
-                <span className="text-sm font-semibold text-slate-900">Campus Resolve</span>
+                <NavLink to="/" onClick={() => setMobileOpen(false)} className="text-sm font-semibold text-slate-900">
+                  Campus Resolve
+                </NavLink>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}
@@ -248,17 +250,22 @@ export function PublicLayout() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-100">
       <header className="border-b border-slate-200 bg-white px-4 py-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <span className="text-sm font-semibold tracking-tight text-slate-900">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <NavLink to="/" className="text-sm font-semibold tracking-tight text-slate-900">
             Campus Resolve
-          </span>
-          <NavLink to="/help" className="text-xs text-slate-600 hover:text-slate-900">
-            Help
           </NavLink>
+          <div className="flex items-center gap-4">
+            <NavLink to="/help" className="text-xs text-slate-600 hover:text-slate-900">
+              Help
+            </NavLink>
+            <NavLink to="/login" className="text-xs text-slate-600 hover:text-slate-900">
+              Sign in
+            </NavLink>
+          </div>
         </div>
       </header>
-      <main className="flex flex-1 items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
+      <main className="flex flex-1 items-start justify-center px-4 py-10">
+        <div className="w-full max-w-6xl">
           <Outlet />
         </div>
       </main>

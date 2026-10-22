@@ -14,7 +14,7 @@ import {
   ProfilePage,
   RegisterPage,
   ResetPasswordPage,
-  VerifyEmailPage,
+  VerifyOtpPage,
 } from './features/auth/AuthPages';
 import {
   NewTicketPage,
@@ -38,7 +38,7 @@ import {
   AdminUsersPage,
 } from './features/admin/AdminPages';
 import { AdminBackupsPage } from './features/admin/AdminBackupsPage';
-import { HelpPage, NotFoundPage } from './pages/PublicPages';
+import { HelpPage, HomePage, NotFoundPage } from './pages/PublicPages';
 import { LoadingState } from './components/ui';
 
 export default function App() {
@@ -46,9 +46,10 @@ export default function App() {
     <Routes>
       {/* Public routes */}
       <Route element={<PublicLayout />}>
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/verify-otp" element={<VerifyOtpPage />} />
         <Route path="/staff-invitation" element={<AcceptInvitationPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -100,7 +101,7 @@ export default function App() {
             <Route path="/analytics" element={<AdminDashboardPage />} />
           </Route>
 
-          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/home" element={<HomeRedirect />} />
         </Route>
       </Route>
 
@@ -114,5 +115,7 @@ function HomeRedirect() {
   const auth = useAuth();
   if (auth.isLoading) return <LoadingState label="Checking your session…" />;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
-  return <Navigate to={auth.isStaff ? '/staff' : '/dashboard'} replace />;
+  if (auth.hasRole('SUPER_ADMIN') || auth.hasRole('ADMIN')) return <Navigate to="/admin/dashboard" replace />;
+  if (auth.isStaff) return <Navigate to="/staff" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
