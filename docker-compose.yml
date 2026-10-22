@@ -49,7 +49,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-campus_resolve}:${POSTGRES_PASSWORD:-campus_resolve}@db:5432/${POSTGRES_DB:-campus_resolve}?schema=public
       INSTITUTION_NAME: ${INSTITUTION_NAME:-Ghana Communication Technology University}
       INSTITUTION_EMAIL_DOMAINS: ${INSTITUTION_EMAIL_DOMAINS:-live.gctu.edu.gh}
-      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-2425400074@live.gctu.edu.gh}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-amoswnganbe@gmail.com}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-campus_session}
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-campus_csrf}
       # A browser refuses a `Secure` cookie that arrives over plain HTTP. The
@@ -70,7 +70,7 @@ services:
       SLA_FIRST_RESPONSE_MINUTES: ${SLA_FIRST_RESPONSE_MINUTES:-480}
       SLA_RESOLUTION_MINUTES: ${SLA_RESOLUTION_MINUTES:-4320}
       AUTO_CLOSE_DAYS: ${AUTO_CLOSE_DAYS:-14}
-      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-2425400074@live.gctu.edu.gh}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-amoswnganbe@gmail.com}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!2026}
       BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Platform Super Administrator}
     volumes:
@@ -96,7 +96,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-campus_resolve}:${POSTGRES_PASSWORD:-campus_resolve}@db:5432/${POSTGRES_DB:-campus_resolve}?schema=public
       INSTITUTION_NAME: ${INSTITUTION_NAME:-Ghana Communication Technology University}
       INSTITUTION_EMAIL_DOMAINS: ${INSTITUTION_EMAIL_DOMAINS:-live.gctu.edu.gh}
-      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-2425400074@live.gctu.edu.gh}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-amoswnganbe@gmail.com}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Campus Resolve}

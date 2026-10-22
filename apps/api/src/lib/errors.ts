@@ -49,8 +49,8 @@ export const invalidTransition = (message: string) =>
 export const rateLimited = (message = 'Too many requests. Please try again later.') =>
   new AppError(429, 'RATE_LIMITED', message);
 
-export const emailNotVerified = () =>
-  new AppError(403, 'EMAIL_NOT_VERIFIED', 'Verify your email address to continue.');
+export const emailNotVerified = (message = 'Verify your email address to continue.') =>
+  new AppError(403, 'EMAIL_NOT_VERIFIED', message);
 
 export const accountSuspended = () =>
   new AppError(

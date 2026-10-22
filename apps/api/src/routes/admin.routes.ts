@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import { createRouter } from '../lib/router';
 import multer from 'multer';
 import {
+  adminResetPasswordSchema,
   categorySchema,
   categoryUpdateSchema,
   departmentSchema,
@@ -49,6 +50,7 @@ adminRouter.get('/users', requirePermission('user:manage'), async (req, res) => 
     role: req.query.role ? (String(req.query.role) as never) : undefined,
     accountStatus: req.query.accountStatus ? String(req.query.accountStatus) : undefined,
     departmentId: req.query.departmentId ? String(req.query.departmentId) : undefined,
+    deleted: req.query.deleted === 'true' ? true : undefined,
   });
   res.json(result);
 });
@@ -99,8 +101,14 @@ adminRouter.patch(
 adminRouter.post(
   '/users/:id/reset-password',
   requirePermission('user:manage'),
+  validate(adminResetPasswordSchema),
   async (req, res) => {
-    const result = await adminService.resetUserPassword(req.auth!, req.params.id!, {}, requestMeta(req));
+    const result = await adminService.resetUserPassword(
+      req.auth!,
+      req.params.id!,
+      { temporaryPassword: req.body.password },
+      requestMeta(req),
+    );
     res.json(result);
   },
 );

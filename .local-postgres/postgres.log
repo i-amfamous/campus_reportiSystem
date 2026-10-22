@@ -126,3 +126,33 @@
 2026-10-22 02:53:46.615 GMT [64597] LOG:  checkpoint complete: wrote 6 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.604 s, sync=0.002 s, total=0.608 s; sync files=7, longest=0.001 s, average=0.001 s; distance=11 kB, estimate=21698 kB; lsn=0/E5C80E0, redo lsn=0/E5C8088
 2026-10-22 02:58:46.611 GMT [64597] LOG:  checkpoint starting: time
 2026-10-22 02:58:50.942 GMT [64597] LOG:  checkpoint complete: wrote 43 buffers (0.3%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=4.327 s, sync=0.003 s, total=4.331 s; sync files=43, longest=0.001 s, average=0.001 s; distance=95 kB, estimate=19538 kB; lsn=0/E5DFF48, redo lsn=0/E5DFEF0
+2026-10-22 03:03:46.938 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 03:03:47.043 GMT [64597] LOG:  checkpoint complete: wrote 1 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.103 s, sync=0.001 s, total=0.105 s; sync files=2, longest=0.001 s, average=0.001 s; distance=6 kB, estimate=17585 kB; lsn=0/E5E1900, redo lsn=0/E5E18A8
+2026-10-22 03:07:49.159 GMT [21616] ERROR:  column ur.user_id does not exist at character 115
+2026-10-22 03:07:49.159 GMT [21616] HINT:  Perhaps you meant to reference the column "ur.userId".
+2026-10-22 03:07:49.159 GMT [21616] STATEMENT:  select u.id,u.email,u.full_name,u.account_status,array_agg(ro.name) roles from users u left join user_roles ur on ur.user_id=u.id left join roles ro on ro.id=ur.role_id group by u.id order by u.created_at
+2026-10-22 03:07:49.167 GMT [21616] LOG:  could not receive data from client: Connection reset by peer
+2026-10-22 03:08:46.059 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 03:08:48.491 GMT [64597] LOG:  checkpoint complete: wrote 24 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.419 s, sync=0.009 s, total=2.432 s; sync files=25, longest=0.006 s, average=0.001 s; distance=50 kB, estimate=15831 kB; lsn=0/E5EE4C8, redo lsn=0/E5EE470
+2026-10-22 03:09:26.254 GMT [22098] ERROR:  null value in column "updatedAt" of relation "system_settings" violates not-null constraint
+2026-10-22 03:09:26.254 GMT [22098] DETAIL:  Failing row contains (supportEmail, "amoswnganbe@gmail.com", null, null, null).
+2026-10-22 03:09:26.254 GMT [22098] STATEMENT:  insert into system_settings (key,value) values ('supportEmail', to_jsonb($1::text)) on conflict (key) do update set value=to_jsonb($1::text), "updatedAt"=now()
+2026-10-22 03:11:37.290 GMT [22867] ERROR:  table "_prisma_migrations" does not exist
+2026-10-22 03:11:37.290 GMT [22867] STATEMENT:  DROP TABLE _prisma_migrations
+2026-10-22 03:12:18.259 GMT [22994] LOG:  skipping analyze of "departments" --- lock not available
+2026-10-22 03:12:18.259 GMT [22994] LOG:  skipping analyze of "department_service_targets" --- lock not available
+2026-10-22 03:12:18.259 GMT [22994] LOG:  skipping analyze of "department_memberships" --- lock not available
+2026-10-22 03:12:18.259 GMT [22994] LOG:  skipping analyze of "user_roles" --- lock not available
+2026-10-22 03:12:18.259 GMT [22994] LOG:  skipping analyze of "jobs" --- lock not available
+2026-10-22 03:12:18.259 GMT [22994] LOG:  skipping analyze of "role_permissions" --- lock not available
+2026-10-22 03:12:18.259 GMT [22994] LOG:  skipping analyze of "permissions" --- lock not available
+2026-10-22 03:12:18.260 GMT [22994] LOG:  skipping analyze of "roles" --- lock not available
+2026-10-22 03:12:18.260 GMT [22994] LOG:  skipping analyze of "users" --- lock not available
+2026-10-22 03:13:46.577 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 03:14:32.692 GMT [64597] LOG:  checkpoint complete: wrote 395 buffers (2.4%), wrote 11 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=39.824 s, sync=0.993 s, total=46.116 s; sync files=14126, longest=0.011 s, average=0.001 s; distance=18434 kB, estimate=18434 kB; lsn=0/F848360, redo lsn=0/F7EEE88
+2026-10-22 03:18:46.696 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 03:18:57.852 GMT [64597] LOG:  checkpoint complete: wrote 110 buffers (0.7%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=11.146 s, sync=0.009 s, total=11.157 s; sync files=48, longest=0.002 s, average=0.001 s; distance=463 kB, estimate=16637 kB; lsn=0/F862B48, redo lsn=0/F862AB8
+2026-10-22 03:23:46.848 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 03:23:50.474 GMT [64597] LOG:  checkpoint complete: wrote 36 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=3.624 s, sync=0.002 s, total=3.626 s; sync files=30, longest=0.001 s, average=0.001 s; distance=151 kB, estimate=14988 kB; lsn=0/F892C80, redo lsn=0/F888AB0
+2026-10-22 03:28:46.471 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 03:28:50.029 GMT [64597] LOG:  checkpoint complete: wrote 35 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=3.555 s, sync=0.002 s, total=3.558 s; sync files=30, longest=0.001 s, average=0.001 s; distance=156 kB, estimate=13505 kB; lsn=0/F8AFE80, redo lsn=0/F8AFE28

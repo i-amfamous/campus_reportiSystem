@@ -42,12 +42,17 @@ export interface ListUsersOptions extends PaginationOptions {
   role?: RoleName | undefined;
   accountStatus?: string | undefined;
   departmentId?: string | undefined;
+  deleted?: boolean | undefined;
 }
 
 export async function listUsers(auth: AuthContext, options: ListUsersOptions) {
   const where: Prisma.UserWhereInput = {
     ...(options.role ? { roles: { some: { role: { name: options.role } } } } : {}),
-    ...(options.accountStatus ? { accountStatus: options.accountStatus as never } : {}),
+    ...(options.deleted
+      ? { accountStatus: 'DEACTIVATED' }
+      : options.accountStatus
+        ? { accountStatus: options.accountStatus as never }
+        : { accountStatus: { not: 'DEACTIVATED' } }),
     ...(options.departmentId
       ? { memberships: { some: { departmentId: options.departmentId, isActive: true } } }
       : {}),
@@ -93,6 +98,7 @@ export async function listUsers(auth: AuthContext, options: ListUsersOptions) {
       })),
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     })),
     total,
     options,
@@ -357,6 +363,7 @@ export async function resetUserPassword(
           password: tempPassword,
           role: (target.roles?.[0]?.role?.name as string) ?? 'STAFF',
           roleLabel: (target.roles?.[0]?.role?.name as string) ?? 'Staff',
+          passwordReset: true,
         },
       },
       tx,

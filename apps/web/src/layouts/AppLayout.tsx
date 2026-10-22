@@ -19,6 +19,7 @@ import {
   DatabaseBackup,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import { ThemeToggle } from '../lib/theme';
 import { Button, cn } from '../components/ui';
 
 interface NavItem {
@@ -186,6 +187,7 @@ export function AppLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NavLink
               to="/profile"
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
@@ -255,6 +257,7 @@ export function PublicLayout() {
             Campus Resolve
           </NavLink>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <NavLink to="/help" className="text-xs text-slate-600 hover:text-slate-900">
               Help
             </NavLink>

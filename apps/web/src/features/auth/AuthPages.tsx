@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -129,14 +129,19 @@ export function LoginPage() {
       navigate('/dashboard', { replace: true });
     } catch (caught) {
       const apiError = caught as ApiError;
-      setError(apiError.message);
       if (apiError.code === 'EMAIL_NOT_VERIFIED') {
         toast.push({
-          tone: 'error',
-          title: 'Verify your email first',
-          description: 'Use the code we sent to your email address.',
+          tone: 'info',
+          title: 'Verify your email',
+          description: 'We sent a new 6-digit code to your email address.',
         });
+        navigate(`/verify-otp?email=${encodeURIComponent(values.email)}`, {
+          replace: true,
+          state: { password: values.password },
+        });
+        return;
       }
+      setError(apiError.message);
     }
   });
 
@@ -328,15 +333,17 @@ export function RegisterPage() {
 
 export function VerifyOtpPage() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const email = params.get('email') ?? '';
+  const loginPassword = (location.state as { password?: string } | null)?.password;
   const navigate = useNavigate();
   const toast = useToast();
-  const [, setError] = useState<string | null>(null);
+  const auth = useAuth();
   const [verifying, setVerifying] = useState(false);
-  const [resendable, setResendable] = useState(true);
   const [resendSeconds, setResendSeconds] = useState(0);
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof verifyOtpSchema>>({
     resolver: zodResolver(verifyOtpSchema),
@@ -348,7 +355,6 @@ export function VerifyOtpPage() {
     next[index] = value;
     setOtpValues(next);
     setOtpError(null);
-    setError(null);
 
     if (value && index < 5) {
       document.getElementById(`otp-${index + 1}`)?.focus();
@@ -363,69 +369,88 @@ export function VerifyOtpPage() {
 
   const onSubmit = form.handleSubmit(async (values) => {
     setVerifying(true);
-    setError(null);
     setOtpError(null);
+    setMessage(null);
     try {
       await api.post('/api/v1/auth/verify-otp', {
         email: values.email,
         otp: values.otp,
       });
-      await api.post('/api/v1/auth/login', { email: values.email, password: '' });
+
+      if (loginPassword) {
+        try {
+          await api.post('/api/v1/auth/login', {
+            email: values.email,
+            password: loginPassword,
+          });
+          await auth.refresh();
+          toast.push({
+            tone: 'success',
+            title: 'Email verified',
+            description: 'Your account is active and you are now signed in.',
+          });
+          navigate('/home', { replace: true });
+          return;
+        } catch {
+          // The account is verified even if the automatic sign-in fails.
+        }
+      }
+
       toast.push({
         tone: 'success',
         title: 'Email verified',
-        description: 'Your account is active and you are now signed in.',
+        description: 'You can now sign in with your password.',
       });
-      navigate('/dashboard', { replace: true });
+      navigate('/login', { replace: true });
     } catch (caught) {
-      const apiError = caught as ApiError;
-      setOtpError(apiError.message);
-      setError(apiError.message);
+      setOtpError((caught as ApiError).message);
     } finally {
       setVerifying(false);
     }
   });
 
   const resendOtp = async () => {
-    setError(null);
     setOtpError(null);
+    setMessage(null);
     try {
       await api.post('/api/v1/auth/resend-verification', { email });
-      setResendable(false);
-      let seconds = 30;
-      const timer = setInterval(() => {
-        setResendSeconds(seconds);
-        seconds -= 1;
-        if (seconds <= 0) {
-          clearInterval(timer);
-          setResendable(true);
-          setResendSeconds(0);
-        }
-      }, 1000);
+      setResendSeconds(30);
+      setMessage('A new verification code has been sent to your email address.');
     } catch (caught) {
-      setError((caught as ApiError).message);
+      setOtpError((caught as ApiError).message);
     }
   };
 
   useEffect(() => {
-    if (resendable) return;
-    const timer = setInterval(() => {
-      setResendSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    if (resendSeconds <= 0) return undefined;
+    const timer = setTimeout(() => {
+      setResendSeconds((current) => (current > 0 ? current - 1 : 0));
     }, 1000);
-    return () => clearInterval(timer);
-  }, [resendable]);
+    return () => clearTimeout(timer);
+  }, [resendSeconds]);
 
   const otp = otpValues.join('');
+  const resendable = resendSeconds === 0;
 
   return (
     <AuthShell>
       <AuthCard
         title="Verify your email"
-        description="Enter the 6-digit code sent to your email address."
+        description={
+          email
+            ? `Enter the 6-digit code sent to ${email}.`
+            : 'Enter the 6-digit code sent to your email address.'
+        }
       >
         {otpError ? (
           <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {otpError}
+          </div>
+        ) : null}
+
+        {message ? (
+          <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {message}
           </div>
         ) : null}
 
@@ -465,17 +490,17 @@ export function VerifyOtpPage() {
               )}
             </p>
           </FormField>
-        </div>
-        </form>
+          </div>
 
-        <Button
-          type="submit"
-          className="w-full"
-          loading={verifying}
-          disabled={verifying || otp.length !== 6}
-        >
-          {verifying ? 'Verifying…' : 'Verify & sign in'}
-        </Button>
+          <Button
+            type="submit"
+            className="w-full"
+            loading={verifying}
+            disabled={verifying || otp.length !== 6}
+          >
+            {verifying ? 'Verifying…' : loginPassword ? 'Verify & sign in' : 'Verify email'}
+          </Button>
+        </form>
 
         <div className="text-center text-sm text-slate-600">
           Already verified?{' '}

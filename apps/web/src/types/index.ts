@@ -207,6 +207,7 @@ export interface AdminUser {
   departments: Array<{ id: string; name: string; departmentRole: string; isActive: boolean }>;
   lastLoginAt: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface AuditEntry {

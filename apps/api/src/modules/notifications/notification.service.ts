@@ -29,6 +29,7 @@ export interface NotificationPayload {
   email?: string;
   password?: string;
   roleLabel?: string;
+  passwordReset?: boolean;
   [key: string]: unknown;
 }
 
@@ -149,6 +150,7 @@ function buildTemplateContext(
     accountEmail: payload.email,
     accountPassword: payload.password,
     roleLabel: payload.roleLabel,
+    passwordReset: payload.passwordReset,
   };
 }
 

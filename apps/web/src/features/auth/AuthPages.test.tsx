@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { AcceptInvitationPage } from './AuthPages';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { AcceptInvitationPage, LoginPage, VerifyOtpPage } from './AuthPages';
+import { renderWithProviders, STUDENT_USER } from '../../test/utils';
 
 const TOKEN = 'invitation-token-value-1234567890';
 
@@ -27,6 +28,103 @@ function renderPage(route = `/staff-invitation?token=${TOKEN}`) {
 
   return { fetchMock };
 }
+
+describe('unverified sign-in', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function renderAuthFlow() {
+    return renderWithProviders(
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/verify-otp" element={<VerifyOtpPage />} />
+        <Route path="/home" element={<div>Home</div>} />
+      </Routes>,
+      { user: null, route: '/login' },
+    );
+  }
+
+  test('sends the user to the verification page when the email is unverified', async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = renderAuthFlow();
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/api/v1/auth/me')) return jsonResponse({ user: null });
+      if (url.includes('/api/v1/auth/login') && init?.method === 'POST') {
+        return jsonResponse(
+          {
+            error: {
+              code: 'EMAIL_NOT_VERIFIED',
+              message:
+                'We sent a new verification code to your email address. Enter it to activate your account.',
+            },
+          },
+          403,
+        );
+      }
+      return jsonResponse({});
+    });
+
+    await user.type(screen.getByLabelText(/Email/), '10234567@live.gctu.edu.gh');
+    await user.type(screen.getByLabelText(/Password/), 'Str0ng!Password1');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(
+      await screen.findByText(
+        /Enter the 6-digit code sent to 10234567@live.gctu.edu.gh/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Verify & sign in' })).toBeInTheDocument();
+  });
+
+  test('verifies the code and signs the user in with the password they just entered', async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = renderAuthFlow();
+    let loginAttempts = 0;
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/api/v1/auth/me')) return jsonResponse({ user: STUDENT_USER });
+      if (url.includes('/api/v1/auth/verify-otp')) return jsonResponse({ verified: true });
+      if (url.includes('/api/v1/auth/login') && init?.method === 'POST') {
+        loginAttempts += 1;
+        if (loginAttempts === 1) {
+          return jsonResponse(
+            {
+              error: {
+                code: 'EMAIL_NOT_VERIFIED',
+                message:
+                  'We sent a new verification code to your email address. Enter it to activate your account.',
+              },
+            },
+            403,
+          );
+        }
+        return jsonResponse({ user: STUDENT_USER });
+      }
+      return jsonResponse({});
+    });
+
+    await user.type(screen.getByLabelText(/Email/), '10234567@live.gctu.edu.gh');
+    await user.type(screen.getByLabelText(/Password/), 'Str0ng!Password1');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    await screen.findByText(/Enter the 6-digit code sent to 10234567@live.gctu.edu.gh/);
+
+    for (const [index, digit] of '123456'.split('').entries()) {
+      const input = document.getElementById(`otp-${index}`);
+      expect(input).not.toBeNull();
+      await user.type(input!, digit);
+    }
+
+    await user.click(screen.getByRole('button', { name: 'Verify & sign in' }));
+
+    expect(await screen.findByText('Home')).toBeInTheDocument();
+    expect(loginAttempts).toBe(2);
+  });
+});
 
 describe('AcceptInvitationPage', () => {
   beforeEach(() => {

@@ -228,6 +228,7 @@ export interface UserFilters {
   role?: string;
   accountStatus?: string;
   departmentId?: string;
+  deleted?: boolean;
 }
 
 export function useUsers(filters: UserFilters) {

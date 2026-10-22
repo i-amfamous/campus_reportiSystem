@@ -11,6 +11,11 @@ import {
 } from './helpers/test-app';
 import { buildApp } from './helpers/test-app';
 import { runJob } from '../src/jobs/handlers';
+import {
+  resetEmailProvider,
+  setEmailProvider,
+  type EmailMessage,
+} from '../src/modules/notifications/email.provider';
 
 const app = buildApp();
 
@@ -252,6 +257,57 @@ describe('administration', () => {
     const me = await officer.get('/api/v1/auth/me');
     expect(me.status).toBe(200);
     expect(me.body.user.roles).toEqual(['OFFICER']);
+  });
+
+  it('saves the password chosen by an administrator and emails it to the user', async () => {
+    const fixture = await setupFixture();
+    const admin = await loginAs(fixture.admin.email);
+    const newPassword = 'Adm1n!Reset2026';
+    const sent: EmailMessage[] = [];
+
+    setEmailProvider({
+      name: 'test',
+      send: async (message) => {
+        sent.push(message);
+        return { providerMessageId: 'test-message' };
+      },
+    });
+
+    try {
+      const response = await admin.post(
+        `/api/v1/admin/users/${fixture.officer.id}/reset-password`,
+        { password: newPassword },
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.email).toBe(fixture.officer.email);
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { recipientId: fixture.officer.id, type: 'ACCOUNT_CREDENTIALS' },
+      });
+      expect(notification.payload).toMatchObject({
+        password: newPassword,
+        passwordReset: true,
+      });
+
+      const job = await prisma.job.findFirstOrThrow({
+        where: { type: 'NOTIFICATION_DELIVERY' },
+        orderBy: { createdAt: 'desc' },
+      });
+      await runJob(job);
+
+      expect(sent).toHaveLength(1);
+      expect(sent[0]!.to).toBe(fixture.officer.email);
+      expect(sent[0]!.text).toContain(newPassword);
+      expect(sent[0]!.html).toContain(newPassword);
+
+      const signedIn = new ApiClient(app);
+      await signedIn.login(fixture.officer.email, newPassword);
+      const me = await signedIn.get('/api/v1/auth/me');
+      expect(me.status).toBe(200);
+    } finally {
+      resetEmailProvider();
+    }
   });
 
   it('refuses to treat a student verification token as a staff invitation', async () => {

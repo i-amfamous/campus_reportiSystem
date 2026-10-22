@@ -55,7 +55,7 @@ export interface ProviderOptions {
 export function renderWithProviders(
   ui: ReactElement,
   options: ProviderOptions & Omit<RenderOptions, 'wrapper'> = {},
-): ReturnType<typeof render> & { queryClient: QueryClient } {
+): ReturnType<typeof render> & { queryClient: QueryClient; fetchMock: ReturnType<typeof vi.fn> } {
   const {
     user = STUDENT_USER,
     route = '/',
@@ -92,5 +92,5 @@ export function renderWithProviders(
     </QueryClientProvider>
   );
 
-  return { ...render(ui, { wrapper, ...rest }), queryClient };
+  return { ...render(ui, { wrapper, ...rest }), queryClient, fetchMock };
 }

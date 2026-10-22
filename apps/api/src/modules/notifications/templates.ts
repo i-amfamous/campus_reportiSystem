@@ -30,6 +30,7 @@ export interface TemplateContext {
   accountEmail?: string | undefined;
   accountPassword?: string | undefined;
   roleLabel?: string | undefined;
+  passwordReset?: boolean | undefined;
 }
 
 export interface RenderedEmail {
@@ -193,13 +194,13 @@ export function renderEmail(type: NotificationType, ctx: TemplateContext): Rende
         '',
         `Your verification code is: ${ctx.token ?? ''}`,
         '',
-        'The code expires in 24 hours. If you did not request an account, ignore this message.',
+        'The code expires in 10 minutes. If you did not request an account, ignore this message.',
       );
       htmlParts.push(
         `<p>Hello ${escapeHtml(ctx.recipientName)},</p>
          <p>Confirm your email address to activate your Campus Resolve account.</p>
          <p style="font-size:16px;font-weight:600;letter-spacing:2px;background:#f1f5f9;padding:12px;border-radius:8px;text-align:center">${escapeHtml(ctx.token ?? '')}</p>
-         <p style="font-size:12px;color:#64748b">This code expires in 24 hours.</p>`,
+         <p style="font-size:12px;color:#64748b">This code expires in 10 minutes.</p>`,
       );
       return {
         subject,
@@ -264,10 +265,13 @@ export function renderEmail(type: NotificationType, ctx: TemplateContext): Rende
         ['Password', ctx.accountPassword ?? ''],
         ['Role', ctx.roleLabel ?? ''],
       ];
+      const intro = ctx.passwordReset
+        ? 'An administrator has reset the password for your Campus Resolve account. These are your updated sign-in details.'
+        : 'An account has been set up for you on Campus Resolve. These are your sign-in details.';
       textParts.push(
         `Hello ${ctx.recipientName},`,
         '',
-        'An account has been set up for you on Campus Resolve. These are your sign-in details.',
+        intro,
         '',
         ...credentials.map(([label, value]) => `- ${label}: ${value}`),
         '',
@@ -277,13 +281,16 @@ export function renderEmail(type: NotificationType, ctx: TemplateContext): Rende
       );
       htmlParts.push(
         `<p>Hello ${escapeHtml(ctx.recipientName)},</p>
-         <p>An account has been set up for you on Campus Resolve. These are your sign-in details.</p>
+         <p>${escapeHtml(intro)}</p>
          <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px">
            ${credentials
              .map(
-                 ([label, value]) =>
-                 `<tr><td style="padding:6px 12px 6px 0;color:#64748b;white-space:nowrap;vertical-align:top">${escapeHtml(label)}</td>
-                  <td style="padding:6px 0;color:#0f172a;font-weight:600">${escapeHtml(value === undefined || value === null ? '' : value)}</td></tr>`,
+                 (row) => {
+                   const label = String(row[0] ?? '');
+                   const value = row[1] == null ? '' : String(row[1]);
+                   return `<tr><td style="padding:6px 12px 6px 0;color:#64748b;white-space:nowrap;vertical-align:top">${escapeHtml(label)}</td>
+                  <td style="padding:6px 0;color:#0f172a;font-weight:600">${escapeHtml(value)}</td></tr>`;
+                 },
              )
              .join('')}
          </table>

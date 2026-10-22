@@ -113,6 +113,11 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+export const adminResetPasswordSchema = z.object({
+  password: passwordSchema,
+});
+export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
+
 export const updateProfileSchema = z.object({
   fullName: fullNameSchema.optional(),
   studentId: studentIdSchema.optional(),

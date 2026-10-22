@@ -111,7 +111,7 @@ it is used.
 ### 3.2 `POST /auth/verify-email`
 
 Body `{ token }`. `200` → `{ verified: true, email, fullName }`. The token is
-single use and expires after 24 hours.
+single use and expires after 10 minutes.
 
 ### 3.3 `POST /auth/resend-verification`
 

@@ -9,6 +9,7 @@ import {
   badRequest,
   conflict,
   emailNotVerified,
+  forbidden,
   notFound,
   unauthenticated,
 } from '../../lib/errors';
@@ -17,7 +18,7 @@ import { queueNotification } from '../notifications/notification.service';
 import { createSession, revokeSession } from './session.service';
 import type { AuthContext } from './auth.types';
 
-const VERIFICATION_TTL_MS = 24 * 3_600_000;
+const VERIFICATION_TTL_MS = 10 * 60_000;
 const RESET_TTL_MS = 60 * 60_000;
 const MAX_FAILED_LOGINS = 8;
 const LOCK_DURATION_MS = 15 * 60_000;
@@ -246,7 +247,10 @@ export async function login(
   }
 
   if (!user.emailVerifiedAt && user.accountStatus !== 'MUST_CHANGE_PASSWORD' && !(user as any).mustChangePassword) {
-    throw emailNotVerified();
+    await resendVerification(normalized);
+    throw emailNotVerified(
+      'We sent a new verification code to your email address. Enter it to activate your account.',
+    );
   }
 
   await prisma.user.update({

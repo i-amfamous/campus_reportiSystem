@@ -224,6 +224,11 @@ describe('authentication', () => {
       });
       expect(response.status).toBe(403);
       expect(response.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+      expect(response.body.error.message).toMatch(/verification code/i);
+
+      const notification = await latestNotification('EMAIL_VERIFICATION');
+      expect(notification).not.toBeNull();
+      expect((notification!.payload as { otp?: string }).otp).toMatch(/^[0-9]{6}$/);
     });
 
     it('blocks sign-in for a suspended account', async () => {

@@ -24,7 +24,7 @@ loadDotenv({ path: path.resolve(process.cwd(), 'apps/api/.env') });
 
 const prisma = new PrismaClient();
 
-const DEFAULT_ADMIN_EMAIL = '2425400074@live.gctu.edu.gh';
+const DEFAULT_ADMIN_EMAIL = 'amoswnganbe@gmail.com';
 const DEFAULT_PASSWORD = 'ChangeMe!2026';
 
 function readOption(name: string): string | undefined {

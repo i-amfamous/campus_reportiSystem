@@ -6,6 +6,7 @@ import {
   ROLES,
   ROLE_LABELS,
   ACCOUNT_DELETION_CONFIRMATION,
+  passwordSchema,
   type RoleName,
 } from '@campus-resolve/shared';
 import {
@@ -21,6 +22,7 @@ import {
   Input,
   LoadingState,
   Pagination,
+  PasswordField,
   Select,
   StatCard,
   Table,
@@ -251,16 +253,30 @@ export function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
+  const [view, setView] = useState<'active' | 'deleted'>('active');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; fullName: string } | null>(null);
+  const [resetTarget, setResetTarget] = useState<{
+    id: string;
+    fullName: string;
+    email: string;
+  } | null>(null);
+  const isDeletedView = view === 'deleted';
 
   const users = useUsers({
     page,
     pageSize: 20,
     search: search || undefined,
-    role: role || undefined,
+    role: isDeletedView ? undefined : role || undefined,
+    deleted: isDeletedView ? true : undefined,
   });
   const departments = useDepartments();
+
+  const switchView = (next: 'active' | 'deleted') => {
+    setView(next);
+    setPage(1);
+    if (next === 'deleted') setRole('');
+  };
 
   const invite = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post('/api/v1/admin/users/invite', body),
@@ -303,14 +319,16 @@ export function AdminUsersPage() {
   });
 
   const resetPassword = useMutation({
-    mutationFn: (userId: string) => api.post(`/api/v1/admin/users/${userId}/reset-password`, {}),
-    onSuccess: (result: any) => {
+    mutationFn: (input: { userId: string; email: string; password: string }) =>
+      api.post(`/api/v1/admin/users/${input.userId}/reset-password`, {
+        password: input.password,
+      }),
+    onSuccess: (_result, input) => {
+      setResetTarget(null);
       toast.push({
         tone: 'success',
         title: 'Password reset',
-        description: result.temporaryPassword
-          ? `Temporary password: ${result.temporaryPassword} (user must change on login)`
-          : 'Temporary password emailed to the user (must change on login)',
+        description: `The new password was emailed to ${input.email}.`,
       });
       void users.refetch();
     },
@@ -330,7 +348,7 @@ export function AdminUsersPage() {
       toast.push({
         tone: 'success',
         title: 'Account deleted',
-        description: 'The reports and the audit trail were kept on record.',
+        description: 'Moved to Deleted accounts. The reports and the audit trail were kept on record.',
       });
       void users.refetch();
     },
@@ -350,18 +368,41 @@ export function AdminUsersPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">Staff &amp; users</h1>
           <p className="text-sm text-slate-500">
-            Roles are scoped to departments. A staff role always replaces the student role.
+            {isDeletedView
+              ? 'Deleted accounts are anonymised. Their reports, replies and audit history are retained.'
+              : 'Roles are scoped to departments. A staff role always replaces the student role.'}
           </p>
         </div>
-        <Button onClick={() => setInviteOpen(true)}>Invite staff member</Button>
+        {isDeletedView ? null : <Button onClick={() => setInviteOpen(true)}>Invite staff member</Button>}
       </header>
 
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Account lists">
+        <Button
+          role="tab"
+          size="sm"
+          aria-selected={!isDeletedView}
+          variant={isDeletedView ? 'secondary' : 'primary'}
+          onClick={() => switchView('active')}
+        >
+          Active accounts
+        </Button>
+        <Button
+          role="tab"
+          size="sm"
+          aria-selected={isDeletedView}
+          variant={isDeletedView ? 'primary' : 'secondary'}
+          onClick={() => switchView('deleted')}
+        >
+          Deleted accounts
+        </Button>
+      </div>
+
       <Card>
-        <CardBody className="grid gap-3 p-4 sm:grid-cols-2">
+        <CardBody className={isDeletedView ? 'grid gap-3 p-4' : 'grid gap-3 p-4 sm:grid-cols-2'}>
           <FormField label="Search" htmlFor="user-search">
             <Input
               id="user-search"
-              placeholder="Name, email or student ID"
+              placeholder={isDeletedView ? 'Search deleted accounts' : 'Name, email or student ID'}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
@@ -369,23 +410,25 @@ export function AdminUsersPage() {
               }}
             />
           </FormField>
-          <FormField label="Role" htmlFor="user-role">
-            <Select
-              id="user-role"
-              value={role}
-              onChange={(event) => {
-                setRole(event.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">All roles</option>
-              {ROLES.map((value) => (
-                <option key={value} value={value}>
-                  {ROLE_LABELS[value]}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+          {isDeletedView ? null : (
+            <FormField label="Role" htmlFor="user-role">
+              <Select
+                id="user-role"
+                value={role}
+                onChange={(event) => {
+                  setRole(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">All roles</option>
+                {ROLES.map((value) => (
+                  <option key={value} value={value}>
+                    {ROLE_LABELS[value]}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          )}
         </CardBody>
       </Card>
 
@@ -397,7 +440,9 @@ export function AdminUsersPage() {
             <ErrorState description={errorMessage(users.error)} />
           </CardBody>
         ) : (users.data?.items ?? []).length === 0 ? (
-          <EmptyState title="No accounts match these filters" />
+          <EmptyState
+            title={isDeletedView ? 'No deleted accounts' : 'No accounts match these filters'}
+          />
         ) : (
           <>
             <Table>
@@ -405,110 +450,138 @@ export function AdminUsersPage() {
                 <tr>
                   <Th>Name</Th>
                   <Th>Email</Th>
-                  <Th>Role</Th>
-                  <Th>Department</Th>
-                  <Th>Status</Th>
-                  <Th>Last login</Th>
-                  <Th>Actions</Th>
+                  {isDeletedView ? (
+                    <>
+                      <Th>Reference</Th>
+                      <Th>Deleted</Th>
+                    </>
+                  ) : (
+                    <>
+                      <Th>Role</Th>
+                      <Th>Department</Th>
+                      <Th>Status</Th>
+                      <Th>Last login</Th>
+                      <Th>Actions</Th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {(users.data?.items ?? []).map((user) => (
                   <Tr key={user.id}>
                     <Td className="text-sm font-medium text-slate-800">{user.fullName}</Td>
-                    <Td className="text-xs text-slate-600">{user.email}</Td>
-                    <Td>
-                      <Badge tone={user.roles.includes('STUDENT') ? 'default' : 'info'}>
-                        {user.roles
-                          .map((value) => ROLE_LABELS[value as RoleName] ?? value)
-                          .join(', ')}
-                      </Badge>
-                    </Td>
-                    <Td className="text-xs text-slate-600">
-                      {user.departments.length > 0
-                        ? user.departments.map((entry) => entry.name).join(', ')
-                        : '—'}
-                    </Td>
-                    <Td>
-                      <Badge
-                        tone={
-                          user.accountStatus === 'ACTIVE'
-                            ? 'success'
-                            : user.accountStatus === 'SUSPENDED'
-                              ? 'danger'
-                              : 'default'
-                        }
-                      >
-                        {user.accountStatus.replace(/_/g, ' ').toLowerCase()}
-                      </Badge>
-                    </Td>
-                    <Td className="text-xs text-slate-500">
-                      {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : 'Never'}
-                    </Td>
-                    <Td>
-                      <div className="flex flex-wrap gap-1">
-                        <Select
-                          aria-label={`Change role for ${user.fullName}`}
-                          value={user.roles[0] ?? 'STUDENT'}
-                          onChange={(event) =>
-                            updateRole.mutate({
-                              userId: user.id,
-                              role: event.target.value as RoleName,
-                              departmentId: user.departments[0]?.id ?? null,
-                            })
-                          }
-                          className="h-8 w-40 py-1 text-xs"
-                        >
-                          {grantableRoles.map((value) => (
-                            <option key={value} value={value}>
-                              {ROLE_LABELS[value]}
-                            </option>
-                          ))}
-                        </Select>
-                        {user.accountStatus === 'ACTIVE' ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() =>
-                              updateStatus.mutate({ userId: user.id, accountStatus: 'SUSPENDED' })
+                    <Td className="max-w-[16rem] break-all text-xs text-slate-600">{user.email}</Td>
+                    {isDeletedView ? (
+                      <>
+                        <Td className="font-mono text-[11px] text-slate-500">
+                          {user.id.slice(0, 8)}
+                        </Td>
+                        <Td className="text-xs text-slate-500">{formatDateTime(user.updatedAt)}</Td>
+                      </>
+                    ) : (
+                      <>
+                        <Td>
+                          <Badge tone={user.roles.includes('STUDENT') ? 'default' : 'info'}>
+                            {user.roles
+                              .map((value) => ROLE_LABELS[value as RoleName] ?? value)
+                              .join(', ')}
+                          </Badge>
+                        </Td>
+                        <Td className="text-xs text-slate-600">
+                          {user.departments.length > 0
+                            ? user.departments.map((entry) => entry.name).join(', ')
+                            : '—'}
+                        </Td>
+                        <Td>
+                          <Badge
+                            tone={
+                              user.accountStatus === 'ACTIVE'
+                                ? 'success'
+                                : user.accountStatus === 'SUSPENDED'
+                                  ? 'danger'
+                                  : 'default'
                             }
                           >
-                            Suspend
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() =>
-                              updateStatus.mutate({ userId: user.id, accountStatus: 'ACTIVE' })
-                            }
-                          >
-                            Activate
-                          </Button>
-                        )}
-                        {user.id !== auth.user?.id ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => resetPassword.mutate(user.id)}
-                            loading={resetPassword.isPending}
-                          >
-                            Reset password
-                          </Button>
-                        ) : null}
-                        {user.id !== auth.user?.id ? (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() =>
-                              setDeleteTarget({ id: user.id, fullName: user.fullName })
-                            }
-                          >
-                            Delete
-                          </Button>
-                        ) : null}
-                      </div>
-                    </Td>
+                            {user.accountStatus.replace(/_/g, ' ').toLowerCase()}
+                          </Badge>
+                        </Td>
+                        <Td className="text-xs text-slate-500">
+                          {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : 'Never'}
+                        </Td>
+                        <Td>
+                          <div className="flex flex-wrap gap-1">
+                            <Select
+                              aria-label={`Change role for ${user.fullName}`}
+                              value={user.roles[0] ?? 'STUDENT'}
+                              onChange={(event) =>
+                                updateRole.mutate({
+                                  userId: user.id,
+                                  role: event.target.value as RoleName,
+                                  departmentId: user.departments[0]?.id ?? null,
+                                })
+                              }
+                              className="h-8 w-40 py-1 text-xs"
+                            >
+                              {grantableRoles.map((value) => (
+                                <option key={value} value={value}>
+                                  {ROLE_LABELS[value]}
+                                </option>
+                              ))}
+                            </Select>
+                            {user.accountStatus === 'ACTIVE' ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  updateStatus.mutate({
+                                    userId: user.id,
+                                    accountStatus: 'SUSPENDED',
+                                  })
+                                }
+                              >
+                                Suspend
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  updateStatus.mutate({ userId: user.id, accountStatus: 'ACTIVE' })
+                                }
+                              >
+                                Activate
+                              </Button>
+                            )}
+                            {user.id !== auth.user?.id ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  setResetTarget({
+                                    id: user.id,
+                                    fullName: user.fullName,
+                                    email: user.email,
+                                  })
+                                }
+                              >
+                                Reset password
+                              </Button>
+                            ) : null}
+                            {user.id !== auth.user?.id ? (
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() =>
+                                  setDeleteTarget({ id: user.id, fullName: user.fullName })
+                                }
+                              >
+                                Delete
+                              </Button>
+                            ) : null}
+                          </div>
+                        </Td>
+                      </>
+                    )}
                   </Tr>
                 ))}
               </tbody>
@@ -541,6 +614,22 @@ export function AdminUsersPage() {
         }}
         pending={deleteUser.isPending}
         error={deleteUser.isError ? errorMessage(deleteUser.error) : null}
+      />
+
+      <ResetPasswordDialog
+        target={resetTarget}
+        onClose={() => setResetTarget(null)}
+        onSubmit={(password) => {
+          if (resetTarget) {
+            resetPassword.mutate({
+              userId: resetTarget.id,
+              email: resetTarget.email,
+              password,
+            });
+          }
+        }}
+        pending={resetPassword.isPending}
+        error={resetPassword.isError ? errorMessage(resetPassword.error) : null}
       />
     </div>
   );
@@ -615,6 +704,82 @@ function DeleteUserDialog({
           The account holder is signed out and can no longer sign in. Their reports, replies and
           audit entries stay in the system.
         </p>
+      </div>
+    </Dialog>
+  );
+}
+
+function ResetPasswordDialog({
+  target,
+  onClose,
+  onSubmit,
+  pending,
+  error,
+}: {
+  target: { id: string; fullName: string; email: string } | null;
+  onClose: () => void;
+  onSubmit: (password: string) => void;
+  pending: boolean;
+  error: string | null;
+}) {
+  const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    if (target) setPassword('');
+  }, [target]);
+
+  const validation = passwordSchema.safeParse(password);
+  const passwordError =
+    password.length > 0 && !validation.success
+      ? validation.error.issues[0]?.message
+      : undefined;
+
+  return (
+    <Dialog
+      open={target !== null}
+      onClose={onClose}
+      title={target ? `Reset ${target.fullName}'s password` : 'Reset password'}
+      description={
+        target
+          ? `Set a new password. It will be saved and emailed to ${target.email}.`
+          : undefined
+      }
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            loading={pending}
+            disabled={!validation.success}
+            onClick={() => onSubmit(password)}
+          >
+            Save and email password
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error ? (
+          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
+        <FormField
+          label="New password"
+          htmlFor="reset-user-password"
+          required
+          error={passwordError}
+          hint="At least 10 characters with upper case, lower case and a number. The user is asked to change it after signing in."
+        >
+          <PasswordField
+            id="reset-user-password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </FormField>
       </div>
     </Dialog>
   );
