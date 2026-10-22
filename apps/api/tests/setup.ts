@@ -10,6 +10,7 @@ process.env.EMAIL_PROVIDER = 'console';
 process.env.INSTITUTION_EMAIL_DOMAINS = 'live.gctu.edu.gh';
 process.env.SESSION_SECRET = 'test-session-secret-value-for-automated-tests-0123456789';
 process.env.STORAGE_DIR = './storage/test-attachments';
+process.env.BACKUP_DIR = './storage/test-backups';
 process.env.LOG_LEVEL = 'error';
 process.env.WORKER_MAX_ATTEMPTS = '3';
 process.env.EMAIL_RETRY_MAX_ATTEMPTS = '3';

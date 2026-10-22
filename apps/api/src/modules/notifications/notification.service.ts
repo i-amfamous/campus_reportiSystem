@@ -25,6 +25,10 @@ export interface NotificationPayload {
   detail?: string;
   escalationLevel?: number;
   dueAt?: string;
+  /** Sign-in details, set when an administrator creates an account. */
+  email?: string;
+  password?: string;
+  roleLabel?: string;
   [key: string]: unknown;
 }
 
@@ -142,6 +146,9 @@ function buildTemplateContext(
     dueAt: payload.dueAt ? new Date(payload.dueAt) : undefined,
     escalationLevel: payload.escalationLevel,
     detail: payload.detail,
+    accountEmail: payload.email,
+    accountPassword: payload.password,
+    roleLabel: payload.roleLabel,
   };
 }
 
@@ -177,6 +184,19 @@ export async function deliverNotification(notificationId: string): Promise<Deliv
   const rendered = renderEmail(notification.type, context);
   const attemptNumber = notification.attemptCount + 1;
 
+  // The rendered message is stored before the attempt so that a delivery that
+  // fails is still readable in the outbox — the operator can see exactly what
+  // was going to be delivered and why it did not arrive.
+  await prisma.notification.update({
+    where: { id: notification.id },
+    data: {
+      payload: {
+        ...asJsonObject(notification.payload),
+        rendered: { subject: rendered.subject, text: rendered.text, html: rendered.html },
+      } as Prisma.InputJsonValue,
+    },
+  });
+
   try {
     const result = await getEmailProvider().send({
       to: notification.recipient.email,
@@ -185,6 +205,20 @@ export async function deliverNotification(notificationId: string): Promise<Deliv
       html: rendered.html,
       idempotencyKey: notification.idempotencyKey,
     });
+
+    // The password is only needed until the message has been delivered. It is
+    // removed from the stored payload and from the stored copy of the message
+    // so it does not sit in the database in plain text.
+    const deliveredPayload = { ...asJsonObject(notification.payload) } as Record<string, unknown>;
+    delete deliveredPayload.password;
+    if (payload.password) deliveredPayload.passwordDelivered = true;
+    const stored = payload.password
+      ? {
+          subject: rendered.subject,
+          text: rendered.text.split(payload.password).join('••••••••'),
+          html: rendered.html.split(payload.password).join('••••••••'),
+        }
+      : { subject: rendered.subject, text: rendered.text, html: rendered.html };
 
     await prisma.$transaction([
       prisma.notification.update({
@@ -197,8 +231,8 @@ export async function deliverNotification(notificationId: string): Promise<Deliv
           lastAttemptAt: clock.now(),
           lastError: null,
           payload: {
-            ...asJsonObject(notification.payload),
-            rendered: { subject: rendered.subject, text: rendered.text, html: rendered.html },
+            ...deliveredPayload,
+            rendered: stored,
           } as Prisma.InputJsonValue,
         },
       }),
@@ -241,6 +275,102 @@ export async function deliverNotification(notificationId: string): Promise<Deliv
     });
     return { sent: false, skipped: false, error: message };
   }
+}
+
+/**
+ * Re-attempts the delivery of a notification.
+ *
+ * Used when the mail provider was misconfigured — a sending domain that is
+ * not verified yet, for example — so the message can be delivered again once
+ * the configuration is fixed.
+ */
+export async function resendNotification(notificationId: string): Promise<DeliveryResult> {
+  const notification = await prisma.notification.findUnique({
+    where: { id: notificationId },
+    include: { recipient: true },
+  });
+  if (!notification) {
+    return { sent: false, skipped: true, error: 'Notification not found' };
+  }
+
+  const payload = (notification.payload ?? {}) as NotificationPayload;
+  const context = buildTemplateContext(payload, notification.recipient.fullName);
+  const rendered = renderEmail(notification.type, context);
+
+  await prisma.notification.update({
+    where: { id: notificationId },
+    data: {
+      status: 'PENDING',
+      lastError: null,
+      payload: {
+        ...asJsonObject(notification.payload),
+        rendered: { subject: rendered.subject, text: rendered.text, html: rendered.html },
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  return deliverNotification(notificationId);
+}
+
+export interface OutboxEntry {
+  id: string;
+  type: NotificationType;
+  status: string;
+  recipientEmail: string;
+  recipientName: string;
+  subject: string;
+  body: string;
+  links: string[];
+  createdAt: Date;
+  sentAt: Date | null;
+  lastError: string | null;
+  attemptCount: number;
+}
+
+/** Extracts the action links from a rendered message. */
+function extractLinks(text: string): string[] {
+  const links = new Set<string>();
+  for (const match of text.matchAll(/https?:\/\/[^\s"'<>]+/g)) {
+    links.add(match[0]);
+  }
+  return [...links];
+}
+
+/**
+ * The operator's view of the mail the system has produced.
+ *
+ * Every message is recorded with the text that was rendered for it, so a
+ * delivery that the provider rejected can still be read, and the link it
+ * contained can be passed on by hand.
+ */
+export async function listOutbox(options: { limit?: number } = {}): Promise<OutboxEntry[]> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+  const notifications = await prisma.notification.findMany({
+    where: { channel: 'EMAIL' },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    include: { recipient: { select: { email: true, fullName: true } } },
+  });
+
+  return notifications.map((notification) => {
+    const payload = (notification.payload ?? {}) as NotificationPayload;
+    const rendered = (payload.rendered ?? {}) as { subject?: string; text?: string };
+    const body = rendered.text ?? '';
+    return {
+      id: notification.id,
+      type: notification.type,
+      status: notification.status,
+      recipientEmail: notification.recipient.email,
+      recipientName: notification.recipient.fullName,
+      subject: rendered.subject ?? payload.detail ?? notification.type,
+      body,
+      links: extractLinks(body),
+      createdAt: notification.createdAt,
+      sentAt: notification.sentAt,
+      lastError: notification.lastError,
+      attemptCount: notification.attemptCount,
+    };
+  });
 }
 
 /** Lists notifications for a recipient (used by the in-app notification panel). */

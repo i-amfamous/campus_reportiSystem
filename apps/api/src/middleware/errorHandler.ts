@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
+import multer from 'multer';
 import { AppError } from '../lib/errors';
 import { logger } from '../config/logger';
 import { formatZodError } from './validate';
@@ -47,6 +48,22 @@ export function errorHandler(
         code: 'VALIDATION_ERROR',
         message: 'The submitted data is invalid.',
         details: formatZodError(error),
+        ...(req.requestId ? { requestId: req.requestId } : {}),
+      },
+    });
+    return;
+  }
+
+  // An upload that is too large or otherwise rejected by the parser is a
+  // client error, not an internal failure.
+  if (error instanceof multer.MulterError) {
+    const tooLarge = error.code === 'LIMIT_FILE_SIZE';
+    res.status(tooLarge ? 413 : 400).json({
+      error: {
+        code: tooLarge ? 'PAYLOAD_TOO_LARGE' : 'VALIDATION_ERROR',
+        message: tooLarge
+          ? 'The uploaded file is larger than the server allows.'
+          : `The upload could not be accepted (${error.code}).`,
         ...(req.requestId ? { requestId: req.requestId } : {}),
       },
     });

@@ -1,0 +1,1 @@
+/Users/macpro/Desktop/campus_reportiSystem/node_modules/@embedded-postgres/darwin-x64/native/bin/postgres "-D" "/Users/macpro/Desktop/campus_reportiSystem/.local-postgres/data" "-p" "5433" "-c" "listen_addresses=localhost" "-c" "max_connections=120"

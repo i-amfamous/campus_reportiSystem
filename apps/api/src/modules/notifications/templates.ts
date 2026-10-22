@@ -26,6 +26,10 @@ export interface TemplateContext {
   dueAt?: Date | undefined;
   escalationLevel?: number | undefined;
   detail?: string | undefined;
+  /** Sign-in details, used when an administrator sets the initial password. */
+  accountEmail?: string | undefined;
+  accountPassword?: string | undefined;
+  roleLabel?: string | undefined;
 }
 
 export interface RenderedEmail {
@@ -66,6 +70,7 @@ const SUBJECTS: Record<NotificationType, (ctx: TemplateContext) => string> = {
   REGISTRATION_CONFIRMED: (ctx) => `Welcome to Campus Resolve, ${ctx.recipientName}`,
   PASSWORD_RESET: () => 'Reset your Campus Resolve password',
   STAFF_INVITATION: () => 'Campus Resolve staff invitation',
+  ACCOUNT_CREDENTIALS: () => 'Your Campus Resolve sign-in details',
   ACCOUNT_SUSPENDED: () => 'Your Campus Resolve account has been suspended',
 
   TICKET_SUBMITTED: (ctx) => `Report received: ${ctx.ticket?.referenceNumber ?? ''}`.trim(),
@@ -250,6 +255,48 @@ export function renderEmail(type: NotificationType, ctx: TemplateContext): Rende
         text: textParts.join('\n'),
         html: layout(
           { ...ctx, actionUrl: link, actionLabel: 'Accept your invitation' },
+          htmlParts.join(''),
+        ),
+      };
+    }
+
+    case 'ACCOUNT_CREDENTIALS': {
+      const signIn = `${ctx.appUrl}/login`;
+      const credentials = [
+        ['Email address', ctx.accountEmail ?? ''],
+        ['Password', ctx.accountPassword ?? ''],
+        ['Role', ctx.roleLabel ?? ''],
+      ];
+      textParts.push(
+        `Hello ${ctx.recipientName},`,
+        '',
+        'An account has been set up for you on Campus Resolve. These are your sign-in details.',
+        '',
+        ...credentials.map(([label, value]) => `- ${label}: ${value}`),
+        '',
+        `Sign in: ${signIn}`,
+        '',
+        'Sign in and change the password from your profile as soon as you can.',
+      );
+      htmlParts.push(
+        `<p>Hello ${escapeHtml(ctx.recipientName)},</p>
+         <p>An account has been set up for you on Campus Resolve. These are your sign-in details.</p>
+         <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px">
+           ${credentials
+             .map(
+               ([label, value]) =>
+                 `<tr><td style="padding:6px 12px 6px 0;color:#64748b;white-space:nowrap;vertical-align:top">${escapeHtml(label)}</td>
+                  <td style="padding:6px 0;color:#0f172a;font-weight:600">${escapeHtml(value)}</td></tr>`,
+             )
+             .join('')}
+         </table>
+         <p style="font-size:12px;color:#64748b">Sign in and change the password from your profile as soon as you can.</p>`,
+      );
+      return {
+        subject,
+        text: textParts.join('\n'),
+        html: layout(
+          { ...ctx, actionUrl: signIn, actionLabel: 'Sign in to Campus Resolve' },
           htmlParts.join(''),
         ),
       };

@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import { ASSIGNABLE_ROLES, type RoleName } from '@campus-resolve/shared';
+import { ASSIGNABLE_ROLES, ROLE_LABELS, type RoleName } from '@campus-resolve/shared';
 import { prisma } from '../../lib/prisma';
 import { clock } from '../../config/clock';
 import { getConfig } from '../../config/env';
@@ -100,8 +100,15 @@ export async function listUsers(auth: AuthContext, options: ListUsersOptions) {
 }
 
 /**
- * Invites a staff member. Staff accounts can only be created by authorised
- * administrators (PRD §5.2).
+ * Creates a staff account.
+ *
+ * Two ways in:
+ *
+ * - The administrator sets a password. The account is created active and the
+ *   sign-in details are emailed to the new user, so they can sign in straight
+ *   away.
+ * - No password is set. The account is created pending and the user chooses
+ *   their own password from the invitation link that is emailed to them.
  */
 export async function inviteUser(
   auth: AuthContext,
@@ -111,6 +118,7 @@ export async function inviteUser(
     role: RoleName;
     departmentId?: string | null | undefined;
     departmentRole?: 'OFFICER' | 'HEAD' | null | undefined;
+    password?: string | undefined;
   },
   meta: RequestMeta = {},
 ) {
@@ -130,8 +138,10 @@ export async function inviteUser(
   const role = await prisma.role.findUnique({ where: { name: input.role } });
   if (!role) throw badRequest(`Unknown role "${input.role}".`);
 
-  const token = generateToken();
-  const temporaryPassword = generateToken(12);
+  const password = input.password?.trim() ? input.password : undefined;
+  const token = password ? undefined : generateToken();
+  const temporaryPassword = password ?? generateToken(12);
+  const now = clock.now();
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -139,7 +149,10 @@ export async function inviteUser(
         fullName: input.fullName.trim(),
         email,
         passwordHash: await hashPassword(temporaryPassword),
-        accountStatus: 'PENDING_VERIFICATION',
+        // An administrator who sets a password vouches for the address, so the
+        // account starts active. Otherwise it waits for the invitation.
+        accountStatus: password ? 'ACTIVE' : 'PENDING_VERIFICATION',
+        emailVerifiedAt: password ? now : null,
         invitedById: auth.userId,
         roles: { create: { roleId: role.id, grantedById: auth.userId } },
         ...(input.departmentId
@@ -155,20 +168,31 @@ export async function inviteUser(
       },
     });
 
-    await tx.emailVerificationToken.create({
-      data: {
-        userId: created.id,
-        tokenHash: hashToken(token, config.SESSION_SECRET),
-        expiresAt: new Date(clock.nowMs() + 24 * 3_600_000),
-      },
-    });
+    if (token) {
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: created.id,
+          tokenHash: hashToken(token, config.SESSION_SECRET),
+          expiresAt: new Date(clock.nowMs() + 24 * 3_600_000),
+        },
+      });
+    }
 
     await queueNotification(
       {
         recipientId: created.id,
-        type: 'STAFF_INVITATION',
-        idempotencyKey: `staff-invitation:${created.id}`,
-        payload: { token, detail: `You were invited as ${input.role}.` },
+        type: password ? 'ACCOUNT_CREDENTIALS' : 'STAFF_INVITATION',
+        idempotencyKey: password
+          ? `account-credentials:${created.id}`
+          : `staff-invitation:${created.id}`,
+        payload: password
+          ? {
+              email,
+              password: temporaryPassword,
+              role: input.role,
+              roleLabel: ROLE_LABELS[input.role],
+            }
+          : { token, detail: `You were invited as ${input.role}.` },
       },
       tx,
     );
@@ -178,14 +202,20 @@ export async function inviteUser(
 
   await writeAudit(
     auth,
-    'USER_INVITED',
+    password ? 'USER_CREATED' : 'USER_INVITED',
     'User',
     user.id,
     { email, role: input.role, departmentId: input.departmentId ?? null },
     meta,
   );
 
-  return { id: user.id, email: user.email, fullName: user.fullName, roles: [input.role] };
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    roles: [input.role],
+    activation: password ? ('PASSWORD_SET' as const) : ('INVITATION_SENT' as const),
+  };
 }
 
 /**
@@ -519,7 +549,7 @@ const SETTING_DEFAULTS = {
   attachmentRetentionMonths: 12,
   allowStudentOfficerSelection: true,
   remindersPaused: false,
-  supportEmail: 'support@campusresolve.edu.gh',
+  supportEmail: getConfig().SUPPORT_EMAIL,
 } as const;
 
 export async function getSettings() {

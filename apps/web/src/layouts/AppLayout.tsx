@@ -16,6 +16,7 @@ import {
   LogOut,
   UserRound,
   ClipboardList,
+  DatabaseBackup,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { Button, cn } from '../components/ui';
@@ -93,6 +94,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'System settings',
     icon: Settings,
     visible: (auth) => auth.hasPermission('settings:manage'),
+  },
+  {
+    to: '/admin/backups',
+    label: 'Backup & restore',
+    icon: DatabaseBackup,
+    visible: (auth) => auth.hasPermission('system:backup'),
   },
 ];
 

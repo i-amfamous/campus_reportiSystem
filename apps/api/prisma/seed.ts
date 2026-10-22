@@ -193,7 +193,7 @@ async function seedDepartmentsAndCategories(): Promise<void> {
 }
 
 async function seedSuperAdministrator(): Promise<void> {
-  const email = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? 'superadmin@live.gctu.edu.gh').toLowerCase();
+  const email = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? '2425400074@live.gctu.edu.gh').toLowerCase();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD ?? 'ChangeMe!2026';
   const fullName = process.env.BOOTSTRAP_ADMIN_NAME ?? 'Platform Super Administrator';
 

@@ -1,7 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ASSIGNABLE_ROLES, ROLES, ROLE_LABELS, type RoleName } from '@campus-resolve/shared';
+import {
+  ASSIGNABLE_ROLES,
+  ROLES,
+  ROLE_LABELS,
+  ACCOUNT_DELETION_CONFIRMATION,
+  type RoleName,
+} from '@campus-resolve/shared';
 import {
   Badge,
   Button,
@@ -246,6 +252,7 @@ export function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; fullName: string } | null>(null);
 
   const users = useUsers({
     page,
@@ -295,14 +302,32 @@ export function AdminUsersPage() {
     },
   });
 
+  const deleteUser = useMutation({
+    mutationFn: (input: { userId: string; reason: string }) =>
+      api.delete(`/api/v1/admin/users/${input.userId}`, {
+        reason: input.reason,
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
+      }),
+    onSuccess: () => {
+      setDeleteTarget(null);
+      toast.push({
+        tone: 'success',
+        title: 'Account deleted',
+        description: 'The reports and the audit trail were kept on record.',
+      });
+      void users.refetch();
+    },
+    onError: (error) => {
+      toast.push({ tone: 'error', title: 'Deletion failed', description: errorMessage(error) });
+    },
+  });
+
   const grantableRoles = useMemo<RoleName[]>(() => {
     for (const role of ['SUPER_ADMIN', 'ADMIN', 'DEPARTMENT_HEAD', 'OFFICER'] as RoleName[]) {
       if (auth.hasRole(role)) return [...ASSIGNABLE_ROLES[role]];
     }
     return ['STUDENT'];
-  }, [auth]);
-
-  return (
+  }, [auth]);  return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -444,6 +469,17 @@ export function AdminUsersPage() {
                             Activate
                           </Button>
                         )}
+                        {user.id !== auth.user?.id ? (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() =>
+                              setDeleteTarget({ id: user.id, fullName: user.fullName })
+                            }
+                          >
+                            Delete
+                          </Button>
+                        ) : null}
                       </div>
                     </Td>
                   </Tr>
@@ -469,7 +505,91 @@ export function AdminUsersPage() {
         departments={departments.data?.items ?? []}
         grantableRoles={grantableRoles}
       />
+
+      <DeleteUserDialog
+        target={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onSubmit={(reason) => {
+          if (deleteTarget) deleteUser.mutate({ userId: deleteTarget.id, reason });
+        }}
+        pending={deleteUser.isPending}
+        error={deleteUser.isError ? errorMessage(deleteUser.error) : null}
+      />
     </div>
+  );
+}
+
+/**
+ * Deleting somebody else's account. The reports and the audit trail stay on
+ * record, so the dialog says so plainly.
+ */
+function DeleteUserDialog({
+  target,
+  onClose,
+  onSubmit,
+  pending,
+  error,
+}: {
+  target: { id: string; fullName: string } | null;
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+  pending: boolean;
+  error: string | null;
+}) {
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (target) setReason('');
+  }, [target]);
+
+  return (
+    <Dialog
+      open={target !== null}
+      onClose={onClose}
+      title={target ? `Delete ${target.fullName}'s account` : 'Delete account'}
+      description="The account is erased, but the reports it submitted and the audit trail are kept."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            type="button"
+            loading={pending}
+            disabled={reason.trim().length < 5}
+            onClick={() => onSubmit(reason.trim())}
+          >
+            Delete account
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error ? (
+          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
+        <FormField
+          label="Why is the account being deleted?"
+          htmlFor="delete-user-reason"
+          required
+          hint="Recorded in the audit trail."
+        >
+          <Textarea
+            id="delete-user-reason"
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </FormField>
+        <p className="text-xs text-slate-500">
+          The account holder is signed out and can no longer sign in. Their reports, replies and
+          audit entries stay in the system.
+        </p>
+      </div>
+    </Dialog>
   );
 }
 

@@ -1,10 +1,12 @@
 import type { Router } from 'express';
 import { createRouter } from '../lib/router';
+import multer from 'multer';
 import {
   categorySchema,
   categoryUpdateSchema,
   departmentSchema,
   departmentUpdateSchema,
+  deleteUserSchema,
   exportQuerySchema,
   inviteUserSchema,
   serviceTargetSchema,
@@ -16,11 +18,19 @@ import { validate } from '../middleware/validate';
 import { requireAuth, requirePermission } from '../middleware/auth';
 import { requestMeta } from '../lib/request';
 import * as adminService from '../modules/admin/admin.service';
+import * as accountService from '../modules/auth/account.service';
+import * as backupService from '../modules/backup/backup.service';
 import * as departmentService from '../modules/departments/department.service';
 import { prisma } from '../lib/prisma';
 import { getConfig } from '../config/env';
+import { badRequest } from '../lib/errors';
 
 export const adminRouter: Router = createRouter();
+
+const restoreUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: getConfig().BACKUP_MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
+});
 
 adminRouter.use(requireAuth);
 
@@ -83,6 +93,31 @@ adminRouter.patch(
       requestMeta(req),
     );
     res.json(result);
+  },
+);
+
+/**
+ * Danger Zone (administrator): erase somebody else's account.
+ *
+ * The account's personal data is removed and the session is ended, but the
+ * tickets, replies and audit trail are kept — deleting a person must not
+ * delete the institutional record of what they reported.
+ */
+adminRouter.delete(
+  '/users/:id',
+  requirePermission('user:manage'),
+  validate(deleteUserSchema),
+  async (req, res) => {
+    const result = await accountService.deleteUserAccount(
+      req.auth!,
+      req.params.id!,
+      { reason: req.body.reason },
+      requestMeta(req),
+    );
+    res.json({
+      message: 'The account has been deleted.',
+      retainedRecords: result.retained,
+    });
   },
 );
 
@@ -217,5 +252,80 @@ adminRouter.post(
       skipDuplicates: true,
     });
     res.json({ queued: result.count });
+  },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Backup and restore                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** Takes a copy of the whole platform: every table and every attachment. */
+adminRouter.post('/backups', requirePermission('system:backup'), async (req, res) => {
+  const backup = await backupService.createBackup({
+    id: req.auth!.userId,
+    email: req.auth!.email,
+    fullName: req.auth!.fullName,
+  });
+  await adminService.writeAudit(
+    req.auth!,
+    'BACKUP_CREATED',
+    'Backup',
+    backup.id,
+    { rows: backup.rows, attachments: backup.attachments, sizeBytes: backup.sizeBytes },
+    requestMeta(req),
+  );
+  res.status(201).json({ backup });
+});
+
+adminRouter.get('/backups', requirePermission('system:backup'), async (_req, res) => {
+  const backups = await backupService.listBackups();
+  res.json({ backups });
+});
+
+adminRouter.get('/backups/status', requirePermission('system:backup'), async (_req, res) => {
+  res.json({ restoreInProgress: await backupService.isRestoreInProgress() });
+});
+
+adminRouter.get(
+  '/backups/:id/download',
+  requirePermission('system:backup'),
+  async (req, res) => {
+    const id = req.params.id!;
+    const target = backupService.backupArchivePath(id);
+    res.download(target, `${id}.tar.gz`);
+  },
+);
+
+adminRouter.delete('/backups/:id', requirePermission('system:backup'), async (req, res) => {
+  const id = req.params.id!;
+  await backupService.deleteBackup(id);
+  await adminService.writeAudit(req.auth!, 'BACKUP_DELETED', 'Backup', id, undefined, requestMeta(req));
+  res.json({ message: 'The backup has been deleted.' });
+});
+
+/**
+ * Puts the platform back from an archive. The archive replaces every table
+ * and every attachment, so the background worker is held back until it is
+ * done.
+ */
+adminRouter.post(
+  '/backups/restore',
+  requirePermission('system:restore'),
+  restoreUpload.single('archive'),
+  async (req, res) => {
+    if (!req.file) throw badRequest('Choose a backup archive to restore.');
+    const result = await backupService.restoreBackup(req.file.buffer, req.auth!.userId);
+    await adminService.writeAudit(
+      req.auth!,
+      'BACKUP_RESTORED',
+      'Backup',
+      req.file.originalname,
+      { rows: result.rows, attachments: result.attachments },
+      requestMeta(req),
+    );
+    res.json({
+      message: 'The platform has been restored from the backup.',
+      restore: result,
+    });
   },
 );

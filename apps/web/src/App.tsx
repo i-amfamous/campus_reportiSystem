@@ -37,6 +37,7 @@ import {
   AdminSettingsPage,
   AdminUsersPage,
 } from './features/admin/AdminPages';
+import { AdminBackupsPage } from './features/admin/AdminBackupsPage';
 import { HelpPage, NotFoundPage } from './pages/PublicPages';
 import { LoadingState } from './components/ui';
 
@@ -89,6 +90,10 @@ export default function App() {
             <Route path="/admin/audit" element={<AdminAuditPage />} />
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          </Route>
+
+          <Route element={<PermissionRoute permission="system:backup" />}>
+            <Route path="/admin/backups" element={<AdminBackupsPage />} />
           </Route>
 
           <Route element={<PermissionRoute permission="analytics:global" />}>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,8 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  deleteAccountSchema,
+  ACCOUNT_DELETION_CONFIRMATION,
   normalizeEmail,
 } from '@campus-resolve/shared';
 import { api, ApiError } from '../../lib/api';
@@ -18,6 +20,7 @@ import {
   Button,
   Card,
   CardBody,
+  Dialog,
   FormField,
   Input,
   PasswordField,
@@ -506,8 +509,10 @@ export function ResetPasswordPage() {
 
 export function ProfilePage() {
   const auth = useAuth();
+  const navigate = useNavigate();
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
+  const [dangerOpen, setDangerOpen] = useState(false);
   const form = useForm<z.infer<typeof changePasswordSchema>>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { currentPassword: '', newPassword: '' },
@@ -599,7 +604,127 @@ export function ProfilePage() {
           </form>
         </CardBody>
       </Card>
+
+      <Card className="border-rose-200">
+        <CardBody className="space-y-4 p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-rose-700">Danger zone</h2>
+            <p className="text-xs text-slate-500">
+              Deleting your account removes your name, email address, password and every message
+              the system sent you, and signs you out for good. The reports you submitted and the
+              audit trail stay on record so the institution keeps its history.
+            </p>
+          </div>
+          <Button variant="danger" onClick={() => setDangerOpen(true)}>
+            Delete my account
+          </Button>
+        </CardBody>
+      </Card>
+
+      <DeleteAccountDialog
+        open={dangerOpen}
+        onClose={() => setDangerOpen(false)}
+        onDeleted={async () => {
+          setDangerOpen(false);
+          toast.push({ tone: 'success', title: 'Your account has been deleted' });
+          await auth.signOut();
+          navigate('/login', { replace: true });
+        }}
+      />
     </div>
+  );
+}
+
+/**
+ * The Danger Zone confirmation. It asks for the current password and for the
+ * confirmation phrase, so an account is never erased by a stray click.
+ */
+function DeleteAccountDialog({
+  open,
+  onClose,
+  onDeleted,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onDeleted: () => void | Promise<void>;
+}) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCurrentPassword('');
+      setConfirmation('');
+      setError(null);
+    }
+  }, [open]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const parsed = deleteAccountSchema.safeParse({ currentPassword, confirmation });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Check the details and try again.');
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      await api.delete('/api/v1/auth/account', parsed.data);
+      await onDeleted();
+    } catch (caught) {
+      setError((caught as ApiError).message);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Delete your account"
+      description="This cannot be undone. Your reports and the audit trail are kept."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button variant="danger" type="submit" form="delete-account-form" loading={pending}>
+            Delete my account
+          </Button>
+        </>
+      }
+    >
+      <form id="delete-account-form" className="space-y-4" onSubmit={submit} noValidate>
+        {error ? (
+          <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
+        <FormField label="Current password" htmlFor="delete-password" required>
+          <PasswordField
+            id="delete-password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+          />
+        </FormField>
+        <FormField
+          label={`Type ${ACCOUNT_DELETION_CONFIRMATION} to confirm`}
+          htmlFor="delete-confirmation"
+          required
+        >
+          <Input
+            id="delete-confirmation"
+            autoComplete="off"
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+          />
+        </FormField>
+      </form>
+    </Dialog>
   );
 }
 

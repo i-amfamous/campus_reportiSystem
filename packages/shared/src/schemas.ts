@@ -115,6 +115,38 @@ export const updateProfileSchema = z.object({
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
+/**
+ * The phrase a person has to type before an account can be erased. The client
+ * shows it and the server enforces it, so a destructive action is never a
+ * single stray click.
+ */
+export const ACCOUNT_DELETION_CONFIRMATION = 'DELETE MY ACCOUNT';
+
+/**
+ * Self-service account erasure. The current password proves ownership of the
+ * session; the confirmation phrase proves intent.
+ */
+export const deleteAccountSchema = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password').max(128),
+  confirmation: z.literal(ACCOUNT_DELETION_CONFIRMATION, {
+    errorMap: () => ({
+      message: `Type "${ACCOUNT_DELETION_CONFIRMATION}" exactly to confirm`,
+    }),
+  }),
+});
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
+
+/** An administrator erasing somebody else's account. */
+export const deleteUserSchema = z.object({
+  reason: z.string().trim().min(5, 'Record why the account is being deleted').max(500),
+  confirmation: z.literal(ACCOUNT_DELETION_CONFIRMATION, {
+    errorMap: () => ({
+      message: `Type "${ACCOUNT_DELETION_CONFIRMATION}" exactly to confirm`,
+    }),
+  }),
+});
+export type DeleteUserInput = z.infer<typeof deleteUserSchema>;
+
 export const createTicketSchema = z.object({
   categoryId: z.string().uuid('Select a valid issue category'),
   departmentId: z.string().uuid('Select a valid department'),
@@ -249,6 +281,13 @@ export const inviteUserSchema = z.object({
   role: z.enum(['OFFICER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN']),
   departmentId: z.string().uuid().optional().nullable(),
   departmentRole: z.enum(['OFFICER', 'HEAD']).optional().nullable(),
+  /**
+   * Optional. When an administrator sets a password, the account is created
+   * active and the sign-in details are emailed to the new user. Without it the
+   * account is created pending and the user chooses their own password from
+   * the invitation link.
+   */
+  password: passwordSchema.optional(),
 });
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
 

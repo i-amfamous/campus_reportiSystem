@@ -200,8 +200,8 @@ export class ApiClient {
     return this.request('put', url, body ?? {});
   }
 
-  delete(url: string) {
-    return this.request('delete', url);
+  delete(url: string, body?: unknown) {
+    return this.request('delete', url, body);
   }
 
   /** Uploads a file as multipart/form-data. */

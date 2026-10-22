@@ -56,6 +56,9 @@ export const PERMISSIONS = [
   'job:manage',
   'security:read',
   'retention:manage',
+  // Platform backup
+  'system:backup',
+  'system:restore',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number];
@@ -112,6 +115,10 @@ const SUPER_ADMIN_PERMISSIONS: PermissionKey[] = [
   'settings:institution',
   'security:read',
   'retention:manage',
+  // Only a super administrator may take a copy of the whole platform or put
+  // one back, because both operations can rewrite every record.
+  'system:backup',
+  'system:restore',
 ];
 
 /**

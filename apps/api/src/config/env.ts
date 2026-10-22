@@ -56,7 +56,7 @@ const envSchema = z.object({
 
   INSTITUTION_NAME: z.string().min(2).default('Campus Resolve'),
   INSTITUTION_EMAIL_DOMAINS: csv(['live.gctu.edu.gh']),
-  SUPPORT_EMAIL: z.string().email().default('support@campusresolve.edu.gh'),
+  SUPPORT_EMAIL: z.string().email().default('2425400074@live.gctu.edu.gh'),
 
   SESSION_COOKIE_NAME: z.string().default('campus_session'),
   CSRF_COOKIE_NAME: z.string().default('campus_csrf'),
@@ -88,6 +88,12 @@ const envSchema = z.object({
   STORAGE_DIR: z.string().default('./storage/attachments'),
   STORAGE_MAX_FILE_SIZE_MB: intish(10),
 
+  BACKUP_DIR: z.string().default('./storage/backups'),
+  /** How many archives are kept before the oldest is removed. */
+  BACKUP_MAX_COUNT: intish(10),
+  /** Largest archive the API accepts when restoring. */
+  BACKUP_MAX_UPLOAD_MB: intish(512),
+
   REMINDER_INTERVAL_MINUTES: intish(120),
   ESCALATION_AFTER_REMINDERS: intish(3),
   MAX_REMINDERS: intish(8),
@@ -103,7 +109,7 @@ const envSchema = z.object({
     .optional()
     .transform((value) => (value && value.trim() ? value.trim() : undefined)),
 
-  BOOTSTRAP_ADMIN_EMAIL: z.string().email().default('superadmin@live.gctu.edu.gh'),
+  BOOTSTRAP_ADMIN_EMAIL: z.string().email().default('2425400074@live.gctu.edu.gh'),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().default('ChangeMe!2026'),
   BOOTSTRAP_ADMIN_NAME: z.string().default('Platform Super Administrator'),
 });
@@ -144,6 +150,13 @@ export function isTest(): boolean {
 /** Absolute path of the private attachment directory (never web-served). */
 export function storageRoot(): string {
   const root = path.resolve(process.cwd(), getConfig().STORAGE_DIR);
+  fs.mkdirSync(root, { recursive: true });
+  return root;
+}
+
+/** Absolute path of the directory that holds the backup archives. */
+export function backupRoot(): string {
+  const root = path.resolve(process.cwd(), getConfig().BACKUP_DIR);
   fs.mkdirSync(root, { recursive: true });
   return root;
 }

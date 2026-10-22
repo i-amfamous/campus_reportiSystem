@@ -19,7 +19,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "seed:prod": "node dist/seed.js"
+    "seed:prod": "node dist/seed.js",
+    "reset:credentials": "tsx prisma/reset-credentials.ts"
   },
   "dependencies": {
     "@campus-resolve/shared": "*",

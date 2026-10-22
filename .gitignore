@@ -16,4 +16,5 @@ test-results/
 
 # Local uploads and system files
 apps/api/storage/
+storage/
 .DS_Store

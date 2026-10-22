@@ -1,0 +1,48 @@
+2026-10-21 03:07:33.911 GMT [64593] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-10-21 03:07:33.913 GMT [64593] LOG:  listening on IPv6 address "::1", port 5433
+2026-10-21 03:07:33.913 GMT [64593] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-10-21 03:07:33.914 GMT [64593] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-10-21 03:07:33.918 GMT [64599] LOG:  database system was shut down at 2026-10-21 03:07:33 GMT
+2026-10-21 03:07:33.921 GMT [64593] LOG:  database system is ready to accept connections
+2026-10-21 03:12:33.915 GMT [64597] LOG:  checkpoint starting: time
+2026-10-21 03:16:02.251 GMT [64597] LOG:  checkpoint complete: wrote 2067 buffers (12.6%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=208.251 s, sync=0.076 s, total=208.336 s; sync files=756, longest=0.006 s, average=0.001 s; distance=10179 kB, estimate=10179 kB; lsn=0/2170D90, redo lsn=0/216F2D0
+2026-10-22 00:17:11.991 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:17:14.940 GMT [64597] LOG:  checkpoint complete: wrote 29 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.928 s, sync=0.009 s, total=2.953 s; sync files=26, longest=0.007 s, average=0.001 s; distance=80 kB, estimate=9169 kB; lsn=0/2183498, redo lsn=0/2183440
+2026-10-22 00:22:11.904 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:22:18.062 GMT [64597] LOG:  checkpoint complete: wrote 61 buffers (0.4%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=6.151 s, sync=0.005 s, total=6.159 s; sync files=42, longest=0.001 s, average=0.001 s; distance=122 kB, estimate=8264 kB; lsn=0/21A1F28, redo lsn=0/21A1E98
+2026-10-22 00:27:11.062 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:27:21.497 GMT [64597] LOG:  checkpoint complete: wrote 103 buffers (0.6%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=10.428 s, sync=0.005 s, total=10.435 s; sync files=77, longest=0.002 s, average=0.001 s; distance=396 kB, estimate=7477 kB; lsn=0/2205070, redo lsn=0/2204FE0
+2026-10-22 00:27:48.488 GMT [79143] ERROR:  table "_prisma_migrations" does not exist
+2026-10-22 00:27:48.488 GMT [79143] STATEMENT:  DROP TABLE _prisma_migrations
+2026-10-22 00:28:21.317 GMT [79407] ERROR:  table "_prisma_migrations" does not exist
+2026-10-22 00:28:21.317 GMT [79407] STATEMENT:  DROP TABLE _prisma_migrations
+2026-10-22 00:29:01.691 GMT [79804] ERROR:  table "_prisma_migrations" does not exist
+2026-10-22 00:29:01.691 GMT [79804] STATEMENT:  DROP TABLE _prisma_migrations
+2026-10-22 00:32:11.101 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:32:25.621 GMT [81770] ERROR:  table "_prisma_migrations" does not exist
+2026-10-22 00:32:25.621 GMT [81770] STATEMENT:  DROP TABLE _prisma_migrations
+2026-10-22 00:32:58.777 GMT [64597] LOG:  checkpoint complete: wrote 396 buffers (2.4%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=46.481 s, sync=0.528 s, total=47.677 s; sync files=8851, longest=0.016 s, average=0.001 s; distance=8547 kB, estimate=8547 kB; lsn=0/31521B8, redo lsn=0/2A5DFA0
+2026-10-22 00:37:11.723 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:37:48.561 GMT [82609] ERROR:  table "_prisma_migrations" does not exist
+2026-10-22 00:37:48.561 GMT [82609] STATEMENT:  DROP TABLE _prisma_migrations
+2026-10-22 00:37:54.431 GMT [64597] LOG:  checkpoint complete: wrote 365 buffers (2.2%), wrote 8 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=37.346 s, sync=0.733 s, total=42.709 s; sync files=9397, longest=0.021 s, average=0.001 s; distance=18241 kB, estimate=18241 kB; lsn=0/3E13868, redo lsn=0/3C2E660
+2026-10-22 00:42:11.931 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:42:57.806 GMT [64597] LOG:  checkpoint complete: wrote 420 buffers (2.6%), wrote 11 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=42.359 s, sync=0.408 s, total=45.875 s; sync files=13833, longest=0.006 s, average=0.001 s; distance=18180 kB, estimate=18235 kB; lsn=0/4DF0880, redo lsn=0/4DEF958
+2026-10-22 00:47:11.810 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:47:14.037 GMT [64597] LOG:  checkpoint complete: wrote 22 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.215 s, sync=0.006 s, total=2.228 s; sync files=20, longest=0.002 s, average=0.001 s; distance=29 kB, estimate=16414 kB; lsn=0/4DF6F70, redo lsn=0/4DF6F18
+2026-10-22 00:52:11.995 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 00:52:13.416 GMT [64597] LOG:  checkpoint complete: wrote 14 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=1.407 s, sync=0.008 s, total=1.422 s; sync files=15, longest=0.006 s, average=0.001 s; distance=19 kB, estimate=14775 kB; lsn=0/4DFBF58, redo lsn=0/4DFBF00
+2026-10-22 00:59:14.800 GMT [85447] ERROR:  table "_prisma_migrations" does not exist
+2026-10-22 00:59:14.800 GMT [85447] STATEMENT:  DROP TABLE _prisma_migrations
+2026-10-22 01:02:11.101 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 01:02:54.646 GMT [64597] LOG:  checkpoint complete: wrote 385 buffers (2.3%), wrote 10 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=38.826 s, sync=0.556 s, total=43.545 s; sync files=13978, longest=0.010 s, average=0.001 s; distance=18160 kB, estimate=18160 kB; lsn=0/5FB8088, redo lsn=0/5FB7FE0
+2026-10-22 01:07:11.612 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 01:07:12.331 GMT [64597] LOG:  checkpoint complete: wrote 7 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.704 s, sync=0.008 s, total=0.720 s; sync files=8, longest=0.006 s, average=0.001 s; distance=7 kB, estimate=16344 kB; lsn=0/5FB9E50, redo lsn=0/5FB9DF8
+2026-10-22 01:12:11.329 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 01:12:12.551 GMT [64597] LOG:  checkpoint complete: wrote 12 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=1.211 s, sync=0.008 s, total=1.223 s; sync files=13, longest=0.006 s, average=0.001 s; distance=30 kB, estimate=14713 kB; lsn=0/5FC16E8, redo lsn=0/5FC1690
+2026-10-22 01:17:11.548 GMT [64597] LOG:  checkpoint starting: time
+2026-10-22 01:17:16.358 GMT [64597] LOG:  checkpoint complete: wrote 47 buffers (0.3%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=4.796 s, sync=0.007 s, total=4.810 s; sync files=45, longest=0.001 s, average=0.001 s; distance=69 kB, estimate=13249 kB; lsn=0/5FD2BA0, redo lsn=0/5FD2B48
+2026-10-22 01:20:02.543 GMT [64597] LOG:  checkpoint starting: immediate force wait
+2026-10-22 01:20:02.551 GMT [64597] LOG:  checkpoint complete: wrote 20 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.004 s, sync=0.002 s, total=0.008 s; sync files=21, longest=0.001 s, average=0.001 s; distance=5372 kB, estimate=12461 kB; lsn=0/6511BC0, redo lsn=0/6511B68
+2026-10-22 01:20:03.131 GMT [64597] LOG:  checkpoint starting: immediate force wait
+2026-10-22 01:20:03.136 GMT [64597] LOG:  checkpoint complete: wrote 24 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.002 s, total=0.006 s; sync files=9, longest=0.001 s, average=0.001 s; distance=5483 kB, estimate=11763 kB; lsn=0/6A6C9D8, redo lsn=0/6A6C980

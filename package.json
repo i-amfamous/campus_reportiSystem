@@ -23,6 +23,7 @@
     "prisma:deploy": "npm run prisma:deploy --workspace @campus-resolve/api",
     "prisma:studio": "npm run prisma:studio --workspace @campus-resolve/api",
     "seed": "npm run seed --workspace @campus-resolve/api",
+    "reset:credentials": "npm run reset:credentials --workspace @campus-resolve/api",
     "seed:prod": "npm run seed:prod --workspace @campus-resolve/api",
     "db:start": "node scripts/local-postgres.mjs start",
     "db:stop": "node scripts/local-postgres.mjs stop",

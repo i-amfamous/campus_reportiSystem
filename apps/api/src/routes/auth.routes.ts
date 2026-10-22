@@ -3,6 +3,7 @@ import { createRouter } from '../lib/router';
 import {
   acceptInvitationSchema,
   changePasswordSchema,
+  deleteAccountSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -16,6 +17,7 @@ import { createRateLimiter } from '../middleware/rateLimit';
 import { getConfig } from '../config/env';
 import { requestMeta } from '../lib/request';
 import * as authService from '../modules/auth/auth.service';
+import * as accountService from '../modules/auth/account.service';
 import { clearSessionCookies, setSessionCookies } from '../modules/auth/session.service';
 
 export const authRouter: Router = createRouter();
@@ -157,5 +159,30 @@ authRouter.post(
       req.body.newPassword,
     );
     res.json({ message: 'Password updated.' });
+  },
+);
+
+/**
+ * Danger Zone: a person erases their own account.
+ *
+ * The credentials and every personal record are removed, but the tickets,
+ * replies and audit trail stay in the system — the institution keeps its
+ * history, the person keeps their right to be forgotten.
+ */
+authRouter.delete(
+  '/account',
+  requireAuth,
+  validate(deleteAccountSchema),
+  async (req, res) => {
+    const result = await accountService.deleteOwnAccount(
+      req.auth!,
+      { currentPassword: req.body.currentPassword },
+      requestMeta(req),
+    );
+    clearSessionCookies(res);
+    res.json({
+      message: 'Your account has been deleted.',
+      retainedRecords: result.retained,
+    });
   },
 );

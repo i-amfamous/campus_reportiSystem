@@ -5,6 +5,7 @@ import { logger } from '../config/logger';
 import { prisma } from '../lib/prisma';
 import { claimJobs, completeJob, failJob, recoverStaleJobs } from './queue';
 import { runJob } from './handlers';
+import { RESTORE_LOCK_KEY } from '../modules/backup/backup.service';
 
 export interface WorkerOptions {
   workerId?: string;
@@ -47,6 +48,13 @@ export class Worker {
 
   /** Processes one batch of due jobs. Returns the number of jobs handled. */
   async tick(): Promise<number> {
+    // A restore rewrites every table. The worker must not touch anything
+    // until the restore has finished and released the lock.
+    if (await this.isRestoreInProgress()) {
+      logger.info('Worker tick skipped: a restore is in progress');
+      return 0;
+    }
+
     // Return jobs abandoned by a crashed worker to the queue before claiming
     // new work, so a restart never leaves a ticket without its reminders.
     await recoverStaleJobs();
@@ -64,6 +72,18 @@ export class Worker {
       }
     }
     return jobs.length;
+  }
+
+  /** True while an administrator is restoring a backup. */
+  private async isRestoreInProgress(): Promise<boolean> {
+    try {
+      const lock = await prisma.systemSetting.findUnique({ where: { key: RESTORE_LOCK_KEY } });
+      const value = lock?.value as { active?: boolean } | undefined;
+      return value?.active === true;
+    } catch {
+      // If the lock cannot be read the worker must not run blind.
+      return true;
+    }
   }
 
   /** Drains the queue until no job is due. Used by tests and by the CLI. */
