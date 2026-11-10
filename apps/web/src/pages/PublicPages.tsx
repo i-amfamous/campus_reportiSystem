@@ -217,7 +217,7 @@ export function HomePage() {
   };
 
   return (
-    <div className="overflow-hidden bg-[#fafafa] dark:bg-slate-950">
+    <div className="overflow-x-clip bg-[#fafafa] dark:bg-slate-950">
       {/* ------------------------------------------------------------------ */}
       {/* Hero                                                               */}
       {/* ------------------------------------------------------------------ */}

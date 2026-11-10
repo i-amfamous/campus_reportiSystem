@@ -194,6 +194,83 @@ function ProofCardBody({ card }: { card: ProofCard }) {
 /* -------------------------------------------------------------------------- */
 
 const CARD_COUNT = PROOF_CARDS.length;
+const LAST_INDEX = CARD_COUNT - 1;
+
+/** Share of each scroll segment where a card rests in place. */
+const HOLD = 0.18;
+/** Share of each scroll segment where the old card folds and the next rises. */
+const TRANS = 0.15;
+const SEGMENT = HOLD + TRANS;
+
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function smoothstep(value: number) {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
+}
+
+/** Progress value at which a card begins folding away. */
+function foldStart(index: number) {
+  return HOLD + index * SEGMENT;
+}
+
+/** Progress value at which a card begins rising from below the stage. */
+function enterStart(index: number) {
+  return index === 0 ? -1 : HOLD + (index - 1) * SEGMENT;
+}
+
+interface CardState {
+  entered: number;
+  folded: number;
+  fade: number;
+}
+
+function cardState(index: number, progress: number): CardState {
+  const entered = index === 0 ? 1 : smoothstep((progress - enterStart(index)) / TRANS);
+  const folded = index === LAST_INDEX ? 0 : smoothstep((progress - foldStart(index)) / TRANS);
+  const fade = clamp01((folded - 0.5) / 0.5);
+  return { entered, folded, fade };
+}
+
+/**
+ * The outgoing card hinges back at the top edge, shrinks into the distance and
+ * fades, while the next card rises from below the stage. This mirrors a page
+ * being folded away rather than a flat crossfade between cards.
+ */
+function cardCss(index: number, progress: number): CSSProperties {
+  const { entered, folded, fade } = cardState(index, progress);
+  const tilt = (index % 2 === 0 ? -1 : 1) * 3;
+
+  return {
+    transform: `translate3d(0, ${(1 - entered) * 100}%, 0) rotateX(${40 * folded}deg) rotateZ(${tilt * folded}deg) scale(${1 - 0.3 * folded})`,
+    opacity: 1 - fade,
+    visibility: entered <= 0.001 || fade >= 0.999 ? 'hidden' : 'visible',
+    zIndex: index + 1,
+    transformOrigin: '50% 10%',
+    filter:
+      folded > 0
+        ? `brightness(${1 - 0.14 * folded}) saturate(${1 - 0.2 * folded})`
+        : undefined,
+    pointerEvents: entered >= 0.999 && folded === 0 ? 'auto' : 'none',
+  };
+}
+
+/** Which step should be highlighted in the left rail. */
+function activeCardAt(progress: number) {
+  let active = 0;
+  for (let index = 0; index < LAST_INDEX; index += 1) {
+    if (progress >= foldStart(index) + TRANS / 2) active = index + 1;
+  }
+  return active;
+}
+
+/** Scroll progress that parks a given card in the reading position. */
+function progressForCard(index: number) {
+  if (index === 0) return 0.02;
+  return Math.min(0.92, foldStart(index - 1) + TRANS + HOLD / 2);
+}
 
 /** True when the visitor has not asked for reduced motion. */
 function usePrefersMotion() {
@@ -212,74 +289,64 @@ function usePrefersMotion() {
   return motion;
 }
 
-/**
- * The fold positions each card on a shared perspective stage. As the section
- * scrolls, the outgoing card hinges away and the next one drops into place.
- */
-function cardStyle(index: number, progress: number): CSSProperties {
-  const stage = progress * CARD_COUNT;
-  const position = stage - index;
-  const safe = Math.min(Math.max(position, -0.35), 1.35);
-
-  let angle = 0;
-  let shift = 0;
-  let opacity = 1;
-  let scale = 1;
-
-  if (safe < 0.22) {
-    // Incoming: hinged back, falling forward into the reading plane.
-    const t = 1 - (safe + 0.35) / 0.57;
-    angle = 58 * t;
-    shift = 16 * t;
-    opacity = 1 - t;
-    scale = 0.96 + 0.04 * (1 - t);
-  } else if (safe > 0.8) {
-    // Outgoing: folds away above the reading plane.
-    const t = Math.min(1, (safe - 0.8) / 0.55);
-    angle = -46 * t;
-    shift = -14 * t;
-    opacity = 1 - t;
-    scale = 1 - 0.03 * t;
-  }
-
-  const hidden = position < -0.35 || position > 1.35;
-
-  return {
-    transform: `translate3d(0, ${shift}%, 0) rotateX(${angle}deg) scale(${scale})`,
-    opacity: hidden ? 0 : opacity,
-    zIndex: hidden ? 0 : Math.round((1 - Math.abs(position - 0.5)) * 100) + index,
-    transition: 'opacity 120ms linear',
-    transformOrigin: 'center center',
-    backfaceVisibility: 'hidden',
-  };
-}
-
 export function FoldedProofSection() {
   const motion = usePrefersMotion();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const [progress, setProgress] = useState(0);
+  const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const shadeRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    if (!motion) {
-      setProgress(0);
-      return;
-    }
+    if (!motion) return;
+
     let frame = 0;
-    const update = () => {
+
+    const paint = (progress: number) => {
+      cardRefs.current.forEach((node, index) => {
+        if (!node) return;
+        const { entered, folded, fade } = cardState(index, progress);
+        const tilt = (index % 2 === 0 ? -1 : 1) * 3;
+
+        node.style.transform = `translate3d(0, ${(1 - entered) * 100}%, 0) rotateX(${40 * folded}deg) rotateZ(${tilt * folded}deg) scale(${1 - 0.3 * folded})`;
+        node.style.opacity = String(1 - fade);
+        node.style.visibility = entered <= 0.001 || fade >= 0.999 ? 'hidden' : 'visible';
+        node.style.zIndex = String(index + 1);
+        node.style.transformOrigin = '50% 10%';
+        node.style.pointerEvents = entered >= 0.999 && folded === 0 ? 'auto' : 'none';
+        node.style.filter =
+          folded > 0
+            ? `brightness(${1 - 0.14 * folded}) saturate(${1 - 0.2 * folded})`
+            : '';
+
+        const shade = shadeRefs.current[index];
+        if (shade) shade.style.opacity = String(folded * 0.45);
+      });
+
+      if (barRef.current) {
+        barRef.current.style.width = `${Math.max(6, progress * 100)}%`;
+      }
+
+      const next = activeCardAt(progress);
+      setActiveIndex((current) => (current === next ? current : next));
+    };
+
+    const measure = () => {
       frame = 0;
       const node = wrapperRef.current;
       if (!node) return;
       const rect = node.getBoundingClientRect();
       const travel = rect.height - window.innerHeight;
       if (travel <= 0) return;
-      const next = Math.min(1, Math.max(0, -rect.top / travel));
-      setProgress(next);
+      paint(clamp01(-rect.top / travel));
     };
+
     const onScroll = () => {
       if (frame) return;
-      frame = window.requestAnimationFrame(update);
+      frame = window.requestAnimationFrame(measure);
     };
-    update();
+
+    measure();
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     return () => {
@@ -289,30 +356,23 @@ export function FoldedProofSection() {
     };
   }, [motion]);
 
-  const activeIndex = Math.min(CARD_COUNT - 1, Math.round(progress * (CARD_COUNT - 1)));
-
   const jumpTo = (index: number) => {
     const node = wrapperRef.current;
     if (!node) return;
     const travel = node.offsetHeight - window.innerHeight;
     const top = node.getBoundingClientRect().top + window.scrollY;
     window.scrollTo({
-      top: top + travel * (index / CARD_COUNT) + 4,
+      top: top + travel * progressForCard(index) + 4,
       behavior: 'smooth',
     });
   };
 
   return (
     <section id="product" className="relative scroll-mt-24 bg-[#fafafa] dark:bg-slate-950">
-      <div
-        ref={wrapperRef}
-        className={motion ? 'relative h-[320vh]' : 'relative'}
-      >
+      <div ref={wrapperRef} className={motion ? 'relative h-[340vh]' : 'relative'}>
         <div
           className={
-            motion
-              ? 'sticky top-0 flex min-h-screen items-center overflow-hidden'
-              : ''
+            motion ? 'sticky top-0 flex min-h-screen items-center overflow-hidden' : ''
           }
         >
           <div className="mx-auto w-full max-w-[1140px] px-5 py-24 sm:px-8 lg:py-28">
@@ -377,8 +437,9 @@ export function FoldedProofSection() {
                     aria-hidden
                   >
                     <div
-                      className="h-full rounded-full bg-brand-500 transition-[width] duration-150 ease-out"
-                      style={{ width: `${motion ? Math.max(6, progress * 100) : 100}%` }}
+                      ref={barRef}
+                      className="h-full rounded-full bg-brand-500"
+                      style={{ width: motion ? '6%' : '100%' }}
                     />
                   </div>
                 </nav>
@@ -387,24 +448,33 @@ export function FoldedProofSection() {
               {motion ? (
                 <div className="relative mx-auto w-full max-w-xl">
                   <div
-                    className="relative h-[500px]"
-                    style={{ perspective: '1800px', perspectiveOrigin: '50% 40%' }}
+                    className="relative h-[520px] overflow-hidden"
+                    style={{ perspective: '1600px', perspectiveOrigin: '50% 15%' }}
                   >
                     {PROOF_CARDS.map((card, index) => (
                       <div
                         key={card.step}
-                        className="absolute inset-0"
-                        style={cardStyle(index, progress)}
-                        aria-hidden={
-                          Math.abs(progress * CARD_COUNT - index - 0.5) > 0.75 || undefined
-                        }
+                        ref={(node) => {
+                          cardRefs.current[index] = node;
+                        }}
+                        className="absolute inset-0 will-change-transform"
+                        style={cardCss(index, 0)}
+                        aria-hidden={index !== activeIndex || undefined}
                       >
                         <ProofCardBody card={card} />
+                        <div
+                          ref={(node) => {
+                            shadeRefs.current[index] = node;
+                          }}
+                          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-slate-950/0 via-slate-950/0 to-slate-950/50"
+                          style={{ opacity: 0 }}
+                          aria-hidden
+                        />
                       </div>
                     ))}
                   </div>
                   <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">
-                    Scroll to unfold each record
+                    Scroll to fold each record away
                   </p>
                 </div>
               ) : (

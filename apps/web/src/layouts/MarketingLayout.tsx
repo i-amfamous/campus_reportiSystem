@@ -222,7 +222,7 @@ export function MarketingLayout() {
 
         <div className="border-t border-slate-900/5 dark:border-white/5">
           <div className="mx-auto flex max-w-[1140px] flex-col gap-2 px-5 py-5 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 dark:text-slate-400">
-            <p>© {new Date().getFullYear()} Campus Resolve. Built for Famous Tech.</p>
+            <p>© {new Date().getFullYear()} Campus Resolve. Built by Famous Tech.</p>
             <p>One channel. One owner. One record.</p>
           </div>
         </div>
