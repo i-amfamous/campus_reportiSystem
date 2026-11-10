@@ -39,7 +39,8 @@ import {
   AdminUsersPage,
 } from './features/admin/AdminPages';
 import { AdminBackupsPage } from './features/admin/AdminBackupsPage';
-import { HelpPage, HomePage, NotFoundPage } from './pages/PublicPages';
+import { HelpPage, HomePage } from './pages/PublicPages';
+import { ErrorPage } from './pages/ErrorPage';
 import { LoadingState } from './components/ui';
 
 export default function App() {
@@ -48,6 +49,12 @@ export default function App() {
       {/* Marketing homepage */}
       <Route element={<MarketingLayout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/error" element={<ErrorPage status={404} />} />
+        <Route path="/error/:code" element={<ErrorPage />} />
+      </Route>
+
+      <Route element={<MarketingLayout />}>
+        <Route path="*" element={<ErrorPage status={404} />} />
       </Route>
 
       {/* Public routes */}
@@ -109,8 +116,6 @@ export default function App() {
           <Route path="/home" element={<HomeRedirect />} />
         </Route>
       </Route>
-
-      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

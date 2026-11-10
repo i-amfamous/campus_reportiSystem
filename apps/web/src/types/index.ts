@@ -219,7 +219,7 @@ export interface AuditEntry {
   action: string;
   entityType: string;
   entityId: string | null;
-  metadata: unknown;
+  details: string;
   ipAddress: string | null;
   createdAt: string;
   actor: { id: string; fullName: string; email: string } | null;

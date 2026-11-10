@@ -1468,7 +1468,7 @@ export function AdminAuditPage() {
                       {entry.entityId ? ` · ${entry.entityId.slice(0, 8)}` : ''}
                     </Td>
                     <Td className="max-w-md truncate text-xs text-slate-500">
-                      {entry.metadata ? JSON.stringify(entry.metadata) : '—'}
+                      {entry.details || 'None'}
                     </Td>
                   </Tr>
                 ))}

@@ -583,6 +583,27 @@ export async function updateCategory(
   return category;
 }
 
+/** Turns a JSON metadata value into one readable sentence for the audit table. */
+function describeAuditValue(value: Prisma.JsonValue | null): string {
+  if (value === null) return 'None';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    return value.map((entry) => describeAuditValue(entry)).join(', ');
+  }
+  return Object.entries(value)
+    .map(([key, entry]) => `${humanizeAuditKey(key)}: ${describeAuditValue(entry)}`)
+    .join(' · ');
+}
+
+function humanizeAuditKey(key: string): string {
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 export async function listAuditLogs(
   auth: AuthContext,
   options: PaginationOptions & { action?: string; entityType?: string; actorId?: string },
@@ -602,7 +623,11 @@ export async function listAuditLogs(
     }),
     prisma.auditLog.count({ where }),
   ]);
-  return paginate(items, total, options);
+  const entries = items.map(({ metadata, ...entry }) => ({
+    ...entry,
+    details: describeAuditValue(metadata),
+  }));
+  return paginate(entries, total, options);
 }
 
 const SETTING_DEFAULTS = {
