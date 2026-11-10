@@ -164,6 +164,10 @@ export interface SystemDashboard {
     averageFirstResponseMinutes: number | null;
     averageResolutionMinutes: number | null;
   };
+  /** Rolling 14-day activity, one entry per UTC day. */
+  trend: Array<{ date: string; created: number; resolved: number }>;
+  statusBreakdown: Array<{ status: TicketStatus; label: string; count: number }>;
+  priorityBreakdown: Array<{ priority: TicketPriority; label: string; count: number }>;
   departments: Array<{
     id: string;
     name: string;

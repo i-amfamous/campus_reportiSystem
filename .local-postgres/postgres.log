@@ -180,3 +180,65 @@
 2026-10-22 13:49:53.230 GMT [64597] LOG:  checkpoint complete: wrote 20 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.042 s, sync=0.009 s, total=2.060 s; sync files=18, longest=0.001 s, average=0.001 s; distance=69 kB, estimate=9029 kB; lsn=0/117C6E18, redo lsn=0/117C6DC0
 2026-10-22 13:54:51.229 GMT [64597] LOG:  checkpoint starting: time
 2026-10-22 13:55:05.029 GMT [64597] LOG:  checkpoint complete: wrote 137 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=13.791 s, sync=0.009 s, total=13.801 s; sync files=103, longest=0.001 s, average=0.001 s; distance=591 kB, estimate=8185 kB; lsn=0/1185AC40, redo lsn=0/1185ABB0
+2026-11-10 01:58:59.379 GMT [62512] FATAL:  data directory "/Users/amos/Desktop/projects/campus_reportiSystem/.local-postgres/data" has invalid permissions
+2026-11-10 01:58:59.379 GMT [62512] DETAIL:  Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+2026-11-10 01:59:09.383 GMT [62613] FATAL:  could not open directory "pg_notify": No such file or directory
+2026-11-10 01:59:09.384 GMT [62613] LOG:  database system is shut down
+2026-11-10 01:59:34.884 GMT [62849] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-11-10 01:59:34.886 GMT [62849] LOG:  listening on IPv6 address "::1", port 5433
+2026-11-10 01:59:34.886 GMT [62849] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-11-10 01:59:34.887 GMT [62849] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-11-10 01:59:34.895 GMT [62855] LOG:  database system was interrupted; last known up at 2026-10-22 13:55:05 GMT
+2026-11-10 01:59:35.121 GMT [62855] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-11-10 01:59:35.126 GMT [62855] LOG:  redo starts at 0/1185ABB0
+2026-11-10 01:59:35.126 GMT [62855] LOG:  invalid record length at 0/1185ACF0: expected at least 24, got 0
+2026-11-10 01:59:35.126 GMT [62855] LOG:  redo done at 0/1185ACB8 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-11-10 01:59:35.130 GMT [62853] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-11-10 01:59:35.132 GMT [62853] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.003 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/1185ACF0, redo lsn=0/1185ACF0
+2026-11-10 01:59:35.134 GMT [62849] LOG:  database system is ready to accept connections
+2026-11-10 01:59:53.833 GMT [63007] ERROR:  relation "User" does not exist at character 29
+2026-11-10 01:59:53.833 GMT [63007] STATEMENT:  select count(*)::int n from "User"
+2026-11-10 02:00:06.991 GMT [63178] ERROR:  column ur.user_id does not exist at character 82
+2026-11-10 02:00:06.991 GMT [63178] HINT:  Perhaps you meant to reference the column "ur.userId".
+2026-11-10 02:00:06.991 GMT [63178] STATEMENT:  select u.email, u.full_name, u.account_status from users u join user_roles ur on ur.user_id=u.id join roles r on r.id=ur.role_id where r.name='SUPER_ADMIN' limit 3
+2026-11-10 02:00:10.412 GMT [63210] ERROR:  column u.account_status does not exist at character 17
+2026-11-10 02:00:10.412 GMT [63210] HINT:  Perhaps you meant to reference the column "u.accountStatus".
+2026-11-10 02:00:10.412 GMT [63210] STATEMENT:  select u.email, u.account_status from users u join user_roles ur on ur."userId"=u.id join roles r on r.id=ur."roleId" where r.name=$1
+2026-11-10 02:04:01.885 GMT [65353] FATAL:  pre-existing shared memory block (key 15561683, ID 393216) is still in use
+2026-11-10 02:04:01.885 GMT [65353] HINT:  Terminate any old server processes associated with data directory "/Users/amos/Desktop/projects/campus_reportiSystem/.local-postgres/data".
+2026-11-10 02:04:01.886 GMT [65353] LOG:  database system is shut down
+2026-11-10 02:04:33.933 GMT [62849] LOG:  received fast shutdown request
+2026-11-10 02:04:33.933 GMT [62849] LOG:  could not open file "postmaster.pid": No such file or directory
+2026-11-10 02:04:33.933 GMT [62849] LOG:  aborting any active transactions
+2026-11-10 02:04:33.933 GMT [64519] FATAL:  terminating connection due to administrator command
+2026-11-10 02:04:33.935 GMT [62849] LOG:  background worker "logical replication launcher" (PID 62859) exited with exit code 1
+2026-11-10 02:04:33.935 GMT [62853] LOG:  shutting down
+2026-11-10 02:04:33.936 GMT [62853] LOG:  checkpoint starting: shutdown immediate
+2026-11-10 02:04:33.938 GMT [62853] LOG:  checkpoint complete: wrote 2 buffers (0.0%), wrote 0 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.003 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=2 kB; lsn=0/1185B688, redo lsn=0/1185B688
+2026-11-10 02:04:33.945 GMT [62849] LOG:  database system is shut down
+2026-11-10 02:04:34.328 GMT [65623] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-11-10 02:04:34.331 GMT [65623] LOG:  listening on IPv6 address "::1", port 5433
+2026-11-10 02:04:34.331 GMT [65623] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-11-10 02:04:34.332 GMT [65623] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-11-10 02:04:34.339 GMT [65629] LOG:  database system was shut down at 2026-11-10 02:04:33 GMT
+2026-11-10 02:04:34.343 GMT [65623] LOG:  database system is ready to accept connections
+2026-11-10 02:05:33.045 GMT [65623] LOG:  received fast shutdown request
+2026-11-10 02:05:33.045 GMT [65623] LOG:  aborting any active transactions
+2026-11-10 02:05:33.045 GMT [65858] FATAL:  terminating connection due to administrator command
+2026-11-10 02:05:33.048 GMT [65623] LOG:  background worker "logical replication launcher" (PID 65632) exited with exit code 1
+2026-11-10 02:05:33.048 GMT [65627] LOG:  shutting down
+2026-11-10 02:05:33.048 GMT [65627] LOG:  checkpoint starting: shutdown immediate
+2026-11-10 02:05:33.051 GMT [65627] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.003 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/1185B738, redo lsn=0/1185B738
+2026-11-10 02:05:33.057 GMT [65623] LOG:  database system is shut down
+2026-11-10 02:05:33.642 GMT [66163] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-11-10 02:05:33.644 GMT [66163] LOG:  listening on IPv6 address "::1", port 5433
+2026-11-10 02:05:33.644 GMT [66163] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-11-10 02:05:33.645 GMT [66163] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-11-10 02:05:33.652 GMT [66169] LOG:  database system was shut down at 2026-11-10 02:05:33 GMT
+2026-11-10 02:05:33.656 GMT [66163] LOG:  database system is ready to accept connections
+2026-11-10 02:10:33.660 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 02:10:36.188 GMT [66167] LOG:  checkpoint complete: wrote 25 buffers (0.2%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.522 s, sync=0.003 s, total=2.529 s; sync files=24, longest=0.001 s, average=0.001 s; distance=71 kB, estimate=71 kB; lsn=0/1186D750, redo lsn=0/1186D6F8
+2026-11-10 02:13:06.599 GMT [69673] ERROR:  table "_prisma_migrations" does not exist
+2026-11-10 02:13:06.599 GMT [69673] STATEMENT:  DROP TABLE _prisma_migrations
+2026-11-10 02:15:33.528 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 02:16:17.952 GMT [66167] LOG:  checkpoint complete: wrote 434 buffers (2.6%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=43.715 s, sync=0.327 s, total=44.424 s; sync files=3135, longest=0.002 s, average=0.001 s; distance=5835 kB, estimate=5835 kB; lsn=0/11E20640, redo lsn=0/11E205B0

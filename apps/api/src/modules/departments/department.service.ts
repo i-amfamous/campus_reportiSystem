@@ -1,4 +1,5 @@
 import type { Prisma, TicketPriority, TicketStatus } from '@prisma/client';
+import { PRIORITY_LABELS, STATUS_LABELS } from '@campus-resolve/shared';
 import { prisma } from '../../lib/prisma';
 import { clock } from '../../config/clock';
 import { badRequest, forbidden, notFound } from '../../lib/errors';
@@ -325,6 +326,67 @@ export async function getSystemDashboard(
     .filter((ticket) => ticket.resolvedAt)
     .map((ticket) => (ticket.resolvedAt!.getTime() - ticket.createdAt.getTime()) / 60_000);
 
+  /*
+   * A rolling two-week activity window for the dashboard charts. Buckets are
+   * computed in UTC so the labels are stable regardless of the host time zone.
+   */
+  const trendDays = 14;
+  const trendStart = new Date();
+  trendStart.setUTCHours(0, 0, 0, 0);
+  trendStart.setUTCDate(trendStart.getUTCDate() - (trendDays - 1));
+
+  const [createdTickets, resolvedTickets, statusGroups, priorityGroups] = await Promise.all([
+    prisma.ticket.findMany({
+      where: { createdAt: { gte: trendStart } },
+      select: { createdAt: true },
+    }),
+    prisma.ticket.findMany({
+      where: { resolvedAt: { gte: trendStart } },
+      select: { resolvedAt: true },
+    }),
+    prisma.ticket.groupBy({ by: ['status'], where, _count: { _all: true } }),
+    prisma.ticket.groupBy({ by: ['priority'], where, _count: { _all: true } }),
+  ]);
+
+  const dayKey = (value: Date): string => value.toISOString().slice(0, 10);
+  const createdPerDay = new Map<string, number>();
+  for (const ticket of createdTickets) {
+    const key = dayKey(ticket.createdAt);
+    createdPerDay.set(key, (createdPerDay.get(key) ?? 0) + 1);
+  }
+  const resolvedPerDay = new Map<string, number>();
+  for (const ticket of resolvedTickets) {
+    if (!ticket.resolvedAt) continue;
+    const key = dayKey(ticket.resolvedAt);
+    resolvedPerDay.set(key, (resolvedPerDay.get(key) ?? 0) + 1);
+  }
+  const trend = Array.from({ length: trendDays }, (_, index) => {
+    const date = new Date(trendStart);
+    date.setUTCDate(trendStart.getUTCDate() + index);
+    const key = dayKey(date);
+    return {
+      date: key,
+      created: createdPerDay.get(key) ?? 0,
+      resolved: resolvedPerDay.get(key) ?? 0,
+    };
+  });
+
+  const statusBreakdown = statusGroups
+    .map((group) => ({
+      status: group.status,
+      label: STATUS_LABELS[group.status],
+      count: group._count._all,
+    }))
+    .sort((left, right) => right.count - left.count);
+
+  const priorityBreakdown = priorityGroups
+    .map((group) => ({
+      priority: group.priority,
+      label: PRIORITY_LABELS[group.priority],
+      count: group._count._all,
+    }))
+    .sort((left, right) => right.count - left.count);
+
   const departments = await prisma.department.findMany({
     where: { isActive: true },
     select: { id: true, name: true, serviceTarget: true },
@@ -372,6 +434,9 @@ export async function getSystemDashboard(
       averageFirstResponseMinutes: average(firstResponseDurations),
       averageResolutionMinutes: average(resolutionDurations),
     },
+    trend,
+    statusBreakdown,
+    priorityBreakdown,
     departments: perDepartment,
     system: { failedNotifications, pendingJobs, failedJobs },
   };

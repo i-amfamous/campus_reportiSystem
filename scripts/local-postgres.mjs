@@ -13,6 +13,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
+import net from 'node:net';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -49,6 +50,28 @@ function isRunning() {
   return result.status === 0;
 }
 
+/**
+ * True when something already accepts connections on the port.
+ *
+ * `pg_ctl` relies on `postmaster.pid`; if that file is deleted while the server
+ * is up, `isRunning()` reports false and a second start would fail with
+ * "pre-existing shared memory block ... is still in use". Checking the port
+ * catches that case.
+ */
+async function isPortOpen() {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: 'localhost', port: PORT });
+    socket.setTimeout(1000);
+    const finish = (result) => {
+      socket.destroy();
+      resolve(result);
+    };
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
+}
+
 function initialise() {
   mkdirSync(path.dirname(DATA_DIR), { recursive: true });
   if (existsSync(path.join(DATA_DIR, 'PG_VERSION'))) return;
@@ -59,10 +82,19 @@ function initialise() {
   );
 }
 
-function start() {
+async function start() {
   initialise();
   if (isRunning()) {
     process.stdout.write('Local PostgreSQL is already running.\n');
+    return;
+  }
+  if (await isPortOpen()) {
+    process.stdout.write(
+      `Something is already listening on port ${PORT}; not starting a second server.\n` +
+        `If it is this cluster without a postmaster.pid, restart it with:\n` +
+        `  kill -INT $(lsof -tiTCP:${PORT} -sTCP:LISTEN)\n` +
+        `  node scripts/local-postgres.mjs start\n`,
+    );
     return;
   }
   mkdirSync(path.dirname(LOG_FILE), { recursive: true });
@@ -110,8 +142,15 @@ async function main() {
     return;
   }
   if (command === 'status') {
+    const runningByPid = isRunning();
+    const runningByPort = await isPortOpen();
     process.stdout.write(
-      `Data dir: ${DATA_DIR}\nPort: ${PORT}\nRunning: ${isRunning() ? 'yes' : 'no'}\n`,
+      `Data dir: ${DATA_DIR}\n` +
+        `Port: ${PORT}\n` +
+        `Running: ${runningByPid || runningByPort ? 'yes' : 'no'}\n` +
+        (runningByPort && !runningByPid
+          ? `Warning: the port is in use but postmaster.pid is missing; the server may need a restart.\n`
+          : ''),
     );
     return;
   }
@@ -120,7 +159,7 @@ async function main() {
     return;
   }
 
-  start();
+  await start();
   await ensureDatabases();
   process.stdout.write(
     `Local PostgreSQL ready.\n` +

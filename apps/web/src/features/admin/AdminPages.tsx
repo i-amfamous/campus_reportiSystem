@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -47,6 +47,11 @@ import {
 } from '../tickets/api';
 import type { Department } from '../../types';
 
+// The charting library is large; load it only when the dashboard is opened.
+const DashboardCharts = lazy(() =>
+  import('./charts').then((module) => ({ default: module.DashboardCharts })),
+);
+
 /* -------------------------------------------------------------------------- */
 /* Operations dashboard                                                       */
 /* -------------------------------------------------------------------------- */
@@ -64,15 +69,24 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Operations</h1>
-        <p className="text-sm text-slate-500">
-          Institution-wide report volume, timeliness and delivery health.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Operations</h1>
+          <p className="text-sm text-slate-500">
+            Institution-wide report volume, timeliness and delivery health.
+          </p>
+        </div>
+        <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-100">
+          Live · last 14 days
+        </span>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total reports" value={data.totals.total} />
+        <StatCard
+          label="Total reports"
+          value={data.totals.total}
+          hint={`${data.totals.resolved} resolved or closed`}
+        />
         <StatCard label="Open" value={data.totals.open} />
         <StatCard
           label="Overdue"
@@ -92,6 +106,18 @@ export function AdminDashboardPage() {
           tone="success"
         />
       </div>
+
+      <Suspense
+        fallback={
+          <Card>
+            <CardBody>
+              <LoadingState label="Loading charts…" />
+            </CardBody>
+          </Card>
+        }
+      >
+        <DashboardCharts dashboard={data} />
+      </Suspense>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

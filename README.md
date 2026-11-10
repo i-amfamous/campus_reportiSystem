@@ -159,10 +159,26 @@ npm run seed            # roles, departments, categories, bootstrap admin
 database is already up to date, so it is safe to run every time. The seed
 script is idempotent as well.
 
-If `npm run db:start` fails, read `.local-postgres/postgres.log`. The two
-common causes are a stale `.local-postgres/data/postmaster.pid` left behind by
-an interrupted run, and data-directory permissions that are too open —
-PostgreSQL requires `0700`:
+If `npm run db:start` fails, read `.local-postgres/postgres.log`. Check first
+whether a server is already up:
+
+```bash
+npm run db:status
+lsof -nP -iTCP:5433 -sTCP:LISTEN   # no output means nothing is listening
+```
+
+If the port is in use but `db:status` reports the server as not running, the
+`postmaster.pid` file was deleted while the server was live. Restart it cleanly
+instead of starting a second one:
+
+```bash
+kill -INT $(lsof -tiTCP:5433 -sTCP:LISTEN)
+npm run db:start
+```
+
+If nothing is listening, the usual causes are a stale
+`.local-postgres/data/postmaster.pid` left behind by an interrupted run, and
+data-directory permissions that are too open — PostgreSQL requires `0700`:
 
 ```bash
 rm -f .local-postgres/data/postmaster.pid
