@@ -63,6 +63,34 @@
   }
 }
 
+/*
+ * Recharts marks its SVG layers focusable, so clicking a chart can paint the
+ * browser's focus ring around the whole plot. Suppress it inside the chart
+ * only; card and form controls keep their normal focus styles.
+ */
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible {
+  outline: none;
+}
+
+/* Faint grid used behind the marketing hero. */
+.hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 78% 62% at 50% 6%, black 32%, transparent 78%);
+  mask-image: radial-gradient(ellipse 78% 62% at 50% 6%, black 32%, transparent 78%);
+}
+
+.dark .hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+}
+
 .dark .bg-white {
   background-color: theme('colors.slate.900');
 }
@@ -164,7 +192,7 @@
 }
 
 .dark .text-slate-400 {
-  color: theme('colors.slate.500');
+  color: theme('colors.slate.400');
 }
 
 .dark .text-slate-500 {

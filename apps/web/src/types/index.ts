@@ -5,6 +5,8 @@ export interface SessionUser {
   email: string;
   fullName: string;
   studentId: string | null;
+  phone?: string | null;
+  preferredContactMethod?: string | null;
   emailVerified: boolean;
   accountStatus: 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'DEACTIVATED';
   roles: string[];
@@ -146,6 +148,59 @@ export interface Paginated<T> {
   pageSize: number;
   total: number;
   totalPages: number;
+}
+
+export interface ReportTrendPoint {
+  date: string;
+  created: number;
+  resolved: number;
+}
+
+export interface ReportTrend {
+  trend: ReportTrendPoint[];
+  granularity: 'hour' | 'day';
+  from: string;
+  to: string;
+}
+
+export interface RoleDashboard {
+  role: 'STUDENT' | 'OFFICER' | 'DEPARTMENT_HEAD' | 'ADMIN';
+  identity: {
+    fullName: string;
+    roles: string[];
+    departmentNames: string[];
+    isGlobal: boolean;
+  };
+  totals: {
+    total: number;
+    open: number;
+    unassigned: number;
+    overdue: number;
+    escalated: number;
+    resolved: number;
+    awaitingStudent: number;
+    reopened: number;
+    resolutionRate: number;
+    assignedToMe: number;
+    submittedByMe: number;
+    newSinceLastLogin: number;
+  };
+  timings: {
+    averageFirstResponseMinutes: number | null;
+    averageResolutionMinutes: number | null;
+  };
+  trend: Array<{ date: string; created: number; resolved: number }>;
+  statusBreakdown: Array<{ status: TicketStatus; label: string; count: number }>;
+  priorityBreakdown: Array<{ priority: TicketPriority; label: string; count: number }>;
+  departments: Array<{
+    id: string;
+    name: string;
+    total: number;
+    open: number;
+    unassigned: number;
+    overdue: number;
+    resolutionTargetMinutes: number | null;
+  }>;
 }
 
 export interface SystemDashboard {

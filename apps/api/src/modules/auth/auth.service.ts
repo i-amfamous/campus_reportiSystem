@@ -1,5 +1,6 @@
 import type { User } from '@prisma/client';
 import { normalizeEmail } from '@campus-resolve/shared';
+import type { UpdateProfileInput } from '@campus-resolve/shared';
 import { prisma } from '../../lib/prisma';
 import { clock } from '../../config/clock';
 import { getConfig } from '../../config/env';
@@ -325,13 +326,65 @@ export async function resetPassword(token: string, newPassword: string): Promise
   });
 }
 
+/** Updates the signed-in person's editable profile fields. */
+export async function updateProfile(auth: AuthContext, input: UpdateProfileInput) {
+  const data: {
+    fullName?: string;
+    studentId?: string | null;
+    phone?: string | null;
+    preferredContactMethod?: string | null;
+  } = {};
+
+  if (input.fullName !== undefined) data.fullName = input.fullName;
+  if (input.studentId !== undefined) data.studentId = input.studentId || null;
+  if (input.phone !== undefined) data.phone = input.phone.trim() || null;
+  if (input.preferredContactMethod !== undefined) {
+    data.preferredContactMethod = input.preferredContactMethod;
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw badRequest('No profile changes were provided.');
+  }
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: auth.userId },
+      data,
+      select: {
+        fullName: true,
+        studentId: true,
+        phone: true,
+        preferredContactMethod: true,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: auth.userId,
+        action: 'PROFILE_UPDATED',
+        entityType: 'User',
+        entityId: auth.userId,
+        metadata: { fields: Object.keys(data) },
+      },
+    });
+
+    return user;
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        throw conflict('That student ID is already attached to another account.');
+      }
+    }
+    throw error;
+  }
+}
+
 /** Changes the password of the signed-in user. */
 export async function changePassword(
   userId: string,
   currentPassword: string,
   newPassword: string,
-): Promise<void> {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+): Promise<void> {  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw notFound('Account not found.');
   const valid = await verifyPassword(currentPassword, user.passwordHash);
   if (!valid) throw badRequest('The current password is incorrect.');
@@ -415,6 +468,8 @@ export function toSessionUser(auth: AuthContext) {
     email: auth.email,
     fullName: auth.fullName,
     studentId: auth.studentId,
+    phone: auth.phone,
+    preferredContactMethod: auth.preferredContactMethod,
     emailVerified: auth.emailVerified,
     accountStatus: auth.accountStatus,
     roles: auth.roles,
@@ -425,7 +480,7 @@ export function toSessionUser(auth: AuthContext) {
       departmentRole: scope.departmentRole,
     })),
     lastLoginAt: auth.lastLoginAt,
-    createdAt: new Date().toISOString(),
+    createdAt: auth.createdAt.toISOString(),
     mustChangePassword: (auth as any).mustChangePassword ?? false,
   };
 }

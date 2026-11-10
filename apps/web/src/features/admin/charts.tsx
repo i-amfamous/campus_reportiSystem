@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import {
   Area,
   AreaChart,
@@ -15,9 +15,10 @@ import {
   YAxis,
 } from 'recharts';
 import { PRIORITY_LABELS, type TicketPriority, type TicketStatus } from '@campus-resolve/shared';
-import { Card, CardBody, CardHeader, EmptyState, cn } from '../../components/ui';
+import { Card, CardBody, CardHeader, EmptyState, Button, Input, Select, cn } from '../../components/ui';
 import { useTheme } from '../../lib/theme';
-import type { SystemDashboard } from '../../types';
+import { useReportTrend } from '../tickets/api';
+import type { RoleDashboard, SystemDashboard } from '../../types';
 
 /* -------------------------------------------------------------------------- */
 /* Palette and theme                                                          */
@@ -68,17 +69,20 @@ function ChartShell({
   children,
   className,
   height,
+  toolbar,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   className?: string;
   height: number;
+  toolbar?: ReactNode;
 }) {
   return (
     <Card className={cn('flex flex-col', className)}>
       <CardHeader title={title} description={description} />
       <CardBody className="flex-1">
+        {toolbar}
         <div style={{ height }} aria-hidden={false}>
           {children}
         </div>
@@ -96,96 +100,207 @@ function EmptyChart({ title, description }: { title: string; description: string
   );
 }
 
-const formatDay = (value: string): string => {
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isNaN(date.getTime())
-    ? value
+type TrendGranularity = 'hour' | 'day';
+
+const formatBucket = (value: string, granularity: TrendGranularity): string => {
+  const date = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  if (Number.isNaN(date.getTime())) return value;
+  return granularity === 'hour'
+    ? date.toLocaleString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+      })
     : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 };
 
 const compactNumber = (value: number): string => value.toLocaleString();
 
+/** Formats a Date for a native datetime-local input, in the user's time zone. */
+const toDateTimeInput = (date: Date): string => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+};
+
+const TREND_PRESETS = [
+  { value: '24h', label: '24 hours', hours: 24 },
+  { value: '7d', label: '7 days', hours: 24 * 7 },
+  { value: '14d', label: '14 days', hours: 24 * 14 },
+  { value: '30d', label: '30 days', hours: 24 * 30 },
+] as const;
+
 /* -------------------------------------------------------------------------- */
 /* Report volume over time                                                    */
 /* -------------------------------------------------------------------------- */
 
-export function ReportTrendChart({ trend }: { trend: SystemDashboard['trend'] }) {
+export function ReportTrendChart({ trend: fallback }: { trend: SystemDashboard['trend'] }) {
   const chart = useChartTheme();
+  const [preset, setPreset] = useState<string>('14d');
+  const [from, setFrom] = useState(() => toDateTimeInput(new Date(Date.now() - 13 * 86_400_000)));
+  const [to, setTo] = useState(() => toDateTimeInput(new Date()));
+  const [granularity, setGranularity] = useState<TrendGranularity>('day');
+
+  const fromTime = Date.parse(from);
+  const toTime = Date.parse(to);
+  const rangeValid = Number.isFinite(fromTime) && Number.isFinite(toTime) && fromTime <= toTime;
+
+  const trendQuery = useReportTrend({
+    from: rangeValid ? new Date(fromTime).toISOString() : '',
+    to: rangeValid ? new Date(toTime).toISOString() : '',
+    granularity,
+  });
+
+  const trend = rangeValid ? (trendQuery.data?.trend ?? fallback) : fallback;
   const hasActivity = trend.some((point) => point.created > 0 || point.resolved > 0);
 
-  if (!hasActivity) {
-    return (
-      <EmptyChart
-        title="Report volume"
-        description="Reports created and resolved over the last 14 days."
-      />
-    );
-  }
+  const applyPreset = (value: string, hours: number) => {
+    const end = new Date();
+    const start = new Date(end.getTime() - hours * 3_600_000);
+    setFrom(toDateTimeInput(start));
+    setTo(toDateTimeInput(end));
+    setGranularity(hours <= 48 ? 'hour' : 'day');
+    setPreset(value);
+  };
+
+  const toolbar = (
+    <div className="mb-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick ranges">
+        {TREND_PRESETS.map((option) => (
+          <Button
+            key={option.value}
+            size="sm"
+            variant={preset === option.value ? 'subtle' : 'secondary'}
+            onClick={() => applyPreset(option.value, option.hours)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+          From
+          <Input
+            type="datetime-local"
+            value={from}
+            max={to || undefined}
+            onChange={(event) => {
+              setFrom(event.target.value);
+              setPreset('custom');
+            }}
+            className="h-9 w-[13.5rem] text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+          To
+          <Input
+            type="datetime-local"
+            value={to}
+            min={from || undefined}
+            max={toDateTimeInput(new Date())}
+            onChange={(event) => {
+              setTo(event.target.value);
+              setPreset('custom');
+            }}
+            className="h-9 w-[13.5rem] text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+          Group by
+          <Select
+            value={granularity}
+            onChange={(event) => {
+              setGranularity(event.target.value as TrendGranularity);
+              setPreset('custom');
+            }}
+            className="h-9 w-24 text-sm"
+          >
+            <option value="day">Day</option>
+            <option value="hour">Hour</option>
+          </Select>
+        </label>
+      </div>
+    </div>
+  );
 
   return (
     <ChartShell
       title="Report volume"
-      description="Reports created and resolved over the last 14 days."
+      description="Reports created and resolved for the selected range."
       height={260}
+      toolbar={toolbar}
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={trend} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
-          <defs>
-            <linearGradient id="createdGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
-            </linearGradient>
-            <linearGradient id="resolvedGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid stroke={chart.grid} strokeDasharray="4 4" vertical={false} />
-          <XAxis
-            dataKey="date"
-            tickFormatter={formatDay}
-            tick={{ fill: chart.axis, fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            minTickGap={18}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fill: chart.axis, fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            width={40}
-          />
-          <Tooltip
-            contentStyle={chart.tooltip}
-            labelStyle={{ color: chart.label, fontWeight: 600 }}
-            labelFormatter={(value) => formatDay(String(value))}
-            formatter={(value, name) => [compactNumber(Number(value)), String(name)]}
-          />
-          <Legend
-            iconType="circle"
-            wrapperStyle={{ fontSize: 12, color: chart.axis, paddingTop: 8 }}
-          />
-          <Area
-            type="monotone"
-            dataKey="created"
-            name="Created"
-            stroke="#6366f1"
-            strokeWidth={2}
-            fill="url(#createdGradient)"
-            activeDot={{ r: 4 }}
-          />
-          <Area
-            type="monotone"
-            dataKey="resolved"
-            name="Resolved"
-            stroke="#10b981"
-            strokeWidth={2}
-            fill="url(#resolvedGradient)"
-            activeDot={{ r: 4 }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+      {!rangeValid ? (
+        <div className="flex h-full items-center justify-center text-sm text-slate-500">
+          Choose a start time before the end time.
+        </div>
+      ) : !hasActivity ? (
+        <div className="flex h-full items-center justify-center text-sm text-slate-500">
+          No reports were created or resolved in this range.
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={trend} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+            <defs>
+              <linearGradient id="createdGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
+              </linearGradient>
+              <linearGradient id="resolvedGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={chart.grid} strokeDasharray="4 4" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(value) => formatBucket(String(value), granularity)}
+              tick={{ fill: chart.axis, fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              minTickGap={18}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fill: chart.axis, fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              width={40}
+            />
+            <Tooltip
+              contentStyle={chart.tooltip}
+              labelStyle={{ color: chart.label, fontWeight: 600 }}
+              labelFormatter={(value) => formatBucket(String(value), granularity)}
+              formatter={(value, name) => [compactNumber(Number(value)), String(name)]}
+            />
+            <Legend
+              iconType="circle"
+              wrapperStyle={{ fontSize: 12, color: chart.axis, paddingTop: 8 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="created"
+              name="Created"
+              stroke="#6366f1"
+              strokeWidth={2}
+              fill="url(#createdGradient)"
+              activeDot={{ r: 4 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="resolved"
+              name="Resolved"
+              stroke="#10b981"
+              strokeWidth={2}
+              fill="url(#resolvedGradient)"
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </ChartShell>
   );
 }
@@ -416,6 +531,138 @@ export function DashboardCharts({ dashboard }: { dashboard: SystemDashboard }) {
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <ReportTrendChart trend={dashboard.trend} />
+        </div>
+        <StatusMixChart data={dashboard.statusBreakdown} total={dashboard.totals.total} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <DepartmentWorkloadChart departments={dashboard.departments} />
+        </div>
+        <PriorityMixChart data={dashboard.priorityBreakdown} />
+      </div>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Role-scoped dashboards                                                     */
+/* -------------------------------------------------------------------------- */
+
+/** A fixed two-week activity chart for the signed-in person's own scope. */
+export function RoleTrendChart({
+  trend,
+  title,
+  description,
+}: {
+  trend: RoleDashboard['trend'];
+  title: string;
+  description: string;
+}) {
+  const chart = useChartTheme();
+  const hasActivity = trend.some((point) => point.created > 0 || point.resolved > 0);
+
+  return (
+    <ChartShell title={title} description={description} height={240}>
+      {!hasActivity ? (
+        <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+            No activity in the last two weeks
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Activity appears here as reports are created and resolved.
+          </p>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={trend} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+            <defs>
+              <linearGradient id="roleCreatedGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#407bd9" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#407bd9" stopOpacity={0.02} />
+              </linearGradient>
+              <linearGradient id="roleResolvedGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" stopOpacity={0.32} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={chart.grid} strokeDasharray="4 4" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(value) => formatBucket(String(value), 'day')}
+              tick={{ fill: chart.axis, fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              minTickGap={18}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fill: chart.axis, fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              width={32}
+            />
+            <Tooltip
+              contentStyle={chart.tooltip}
+              labelStyle={{ color: chart.label, fontWeight: 600 }}
+              labelFormatter={(value) => formatBucket(String(value), 'day')}
+              formatter={(value, name) => [compactNumber(Number(value)), String(name)]}
+            />
+            <Legend
+              iconType="circle"
+              wrapperStyle={{ fontSize: 12, color: chart.axis, paddingTop: 8 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="created"
+              name="Created"
+              stroke="#407bd9"
+              strokeWidth={2}
+              fill="url(#roleCreatedGradient)"
+              activeDot={{ r: 4 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="resolved"
+              name="Resolved"
+              stroke="#10b981"
+              strokeWidth={2}
+              fill="url(#roleResolvedGradient)"
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </ChartShell>
+  );
+}
+
+/**
+ * Chart composition shared by the student and staff dashboards. Both receive
+ * only the data the API already scoped to the signed-in person.
+ */
+export function RoleDashboardCharts({
+  dashboard,
+  audience,
+}: {
+  dashboard: RoleDashboard;
+  audience: 'student' | 'staff';
+}) {
+  const activityTitle = audience === 'student' ? 'Your report activity' : 'Your office activity';
+  const activityDescription =
+    audience === 'student'
+      ? 'Reports you created and saw resolved over the last two weeks.'
+      : 'Reports created and resolved across the departments you can access.';
+
+  return (
+    <>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <RoleTrendChart
+            trend={dashboard.trend}
+            title={activityTitle}
+            description={activityDescription}
+          />
         </div>
         <StatusMixChart data={dashboard.statusBreakdown} total={dashboard.totals.total} />
       </div>

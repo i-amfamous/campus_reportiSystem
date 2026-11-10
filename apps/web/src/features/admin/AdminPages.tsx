@@ -1,6 +1,21 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  AlertTriangle,
+  ArrowRight,
+  ArrowUpRight,
+  Building2,
+  ClipboardList,
+  Clock3,
+  FileDown,
+  RotateCcw,
+  ScrollText,
+  Settings,
+  ShieldAlert,
+  UserX,
+  UsersRound,
+} from 'lucide-react';
 import {
   ASSIGNABLE_ROLES,
   ROLES,
@@ -30,6 +45,7 @@ import {
   Textarea,
   Th,
   Tr,
+  cn,
   useToast,
 } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
@@ -57,6 +73,7 @@ const DashboardCharts = lazy(() =>
 /* -------------------------------------------------------------------------- */
 
 export function AdminDashboardPage() {
+  const auth = useAuth();
   const dashboard = useSystemDashboard();
   const health = useSystemHealth();
 
@@ -66,46 +83,248 @@ export function AdminDashboardPage() {
   }
 
   const data = dashboard.data!.dashboard;
+  const totals = data.totals;
+  const officeCount = data.departments.length;
+  const updatedLabel = dashboard.dataUpdatedAt
+    ? new Date(dashboard.dataUpdatedAt).toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
+  const attentionItems = [
+    {
+      label: 'Overdue',
+      value: totals.overdue,
+      hint: 'Past the resolution target',
+      zeroHint: 'Nothing overdue',
+      to: '/staff/queue?scope=overdue',
+      icon: AlertTriangle,
+      text: 'text-rose-600 dark:text-rose-400',
+    },
+    {
+      label: 'Unassigned',
+      value: totals.unassigned,
+      hint: 'Waiting for an owner',
+      zeroHint: 'Everything assigned',
+      to: '/staff/queue?scope=unassigned',
+      icon: UserX,
+      text: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      label: 'Escalated',
+      value: totals.escalated,
+      hint: 'Raised beyond the department',
+      zeroHint: 'No escalations',
+      to: '/staff/queue?scope=escalated',
+      icon: ShieldAlert,
+      text: 'text-orange-600 dark:text-orange-400',
+    },
+    {
+      label: 'Awaiting students',
+      value: totals.awaitingStudent,
+      hint: 'Waiting on a student reply',
+      zeroHint: 'No replies pending',
+      to: '/staff/queue?scope=awaiting',
+      icon: Clock3,
+      text: 'text-violet-600 dark:text-violet-400',
+    },
+    {
+      label: 'Reopened',
+      value: totals.reopened,
+      hint: 'Sent back after resolution',
+      zeroHint: 'No reopened reports',
+      to: '/staff/queue?scope=reopened',
+      icon: RotateCcw,
+      text: 'text-sky-600 dark:text-sky-400',
+    },
+  ];
+
+  const quickActions = [
+    { label: 'Work queue', to: '/staff/queue', icon: ClipboardList, visible: true },
+    {
+      label: 'Departments',
+      to: '/admin/departments',
+      icon: Building2,
+      visible: auth.hasPermission('department:manage'),
+    },
+    {
+      label: 'Staff and users',
+      to: '/admin/users',
+      icon: UsersRound,
+      visible: auth.hasPermission('user:manage'),
+    },
+    {
+      label: 'Audit trail',
+      to: '/admin/audit',
+      icon: ScrollText,
+      visible: auth.hasPermission('audit:read'),
+    },
+    {
+      label: 'Reports and exports',
+      to: '/admin/reports',
+      icon: FileDown,
+      visible: auth.hasPermission('export:create'),
+    },
+    {
+      label: 'System settings',
+      to: '/admin/settings',
+      icon: Settings,
+      visible: auth.hasPermission('settings:manage'),
+    },
+  ].filter((action) => action.visible);
+
+  const departmentsByRisk = [...data.departments].sort(
+    (left, right) =>
+      right.overdue - left.overdue ||
+      right.open - left.open ||
+      left.name.localeCompare(right.name),
+  );
+
+  const failedJobs = health.data?.jobs.failed ?? 0;
+  const failedNotifications = health.data?.notifications.failed ?? 0;
+  const healthy = health.data ? failedJobs === 0 && failedNotifications === 0 : null;
+
+  const refreshAll = () => {
+    void dashboard.refetch();
+    void health.refetch();
+  };
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Operations</h1>
-          <p className="text-sm text-slate-500">
-            Institution-wide report volume, timeliness and delivery health.
+      <header className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Operations
+            </h1>
+            <Badge tone={totals.overdue > 0 ? 'warning' : 'success'}>
+              {totals.overdue > 0 ? `${totals.overdue} overdue` : 'On track'}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {totals.total} reports across {officeCount} {officeCount === 1 ? 'office' : 'offices'}
+            {updatedLabel ? `. Updated at ${updatedLabel}.` : '.'}
           </p>
         </div>
-        <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-100">
-          Live · last 14 days
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={dashboard.isFetching || health.isFetching}
+            onClick={refreshAll}
+          >
+            Refresh
+          </Button>
+          <Link
+            to="/staff/queue"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          >
+            Open work queue
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total reports"
-          value={data.totals.total}
-          hint={`${data.totals.resolved} resolved or closed`}
-        />
-        <StatCard label="Open" value={data.totals.open} />
-        <StatCard
-          label="Overdue"
-          value={data.totals.overdue}
-          tone={data.totals.overdue > 0 ? 'danger' : 'success'}
-        />
-        <StatCard label="Unassigned" value={data.totals.unassigned} tone="warning" />
-      </div>
+      <nav aria-label="Admin quick actions" className="flex flex-wrap items-center gap-2">
+        <span className="mr-0.5 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Jump to
+        </span>
+        {quickActions.map((action) => (
+          <Link
+            key={action.to}
+            to={action.to}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300"
+          >
+            <action.icon className="h-3.5 w-3.5" aria-hidden />
+            {action.label}
+          </Link>
+        ))}
+      </nav>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Escalated" value={data.totals.escalated} tone="warning" />
-        <StatCard label="Awaiting students" value={data.totals.awaitingStudent} />
-        <StatCard label="Reopened" value={data.totals.reopened} />
-        <StatCard
-          label="Resolution rate"
-          value={`${Math.round(data.totals.resolutionRate)}%`}
-          tone="success"
+      <Card className="overflow-hidden">
+        <CardHeader
+          title="Needs attention"
+          description="Reports that are past target or waiting on a handoff. Select one to open the matching queue."
         />
-      </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {attentionItems.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className="group flex flex-col rounded-lg border border-slate-200 bg-slate-50/60 p-4 transition hover:border-indigo-300 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-indigo-700 dark:hover:bg-slate-900"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                <item.icon
+                  className={
+                    item.value > 0
+                      ? `h-4 w-4 ${item.text}`
+                      : 'h-4 w-4 text-slate-400 dark:text-slate-500'
+                  }
+                  aria-hidden
+                />
+                {item.label}
+              </span>
+              <span
+                className={`mt-2 text-3xl font-semibold tabular-nums tracking-tight ${
+                  item.value > 0 ? item.text : 'text-slate-900 dark:text-white'
+                }`}
+              >
+                {item.value}
+              </span>
+              <span className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span>{item.value > 0 ? item.hint : item.zeroHint}</span>
+                <ArrowUpRight
+                  className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-hidden
+                />
+              </span>
+            </Link>
+          ))}
+        </div>
+      </Card>
+
+      <section aria-labelledby="overview-heading" className="space-y-3">
+        <div>
+          <h2
+            id="overview-heading"
+            className="text-sm font-semibold text-slate-900 dark:text-white"
+          >
+            Service overview
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Whole-institution totals across every connected office.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Total reports"
+            value={totals.total}
+            hint={`${officeCount} ${officeCount === 1 ? 'office' : 'offices'} connected`}
+            to="/staff/queue"
+          />
+          <StatCard
+            label="Open now"
+            value={totals.open}
+            hint={`${totals.unassigned} waiting for an owner`}
+            to="/staff/queue?scope=open"
+          />
+          <StatCard
+            label="Resolved or closed"
+            value={totals.resolved}
+            hint={`${Math.round(totals.resolutionRate)}% resolution rate`}
+            tone="success"
+            to="/staff/queue?scope=resolved"
+          />
+          <StatCard
+            label="Resolution rate"
+            value={`${Math.round(totals.resolutionRate)}%`}
+            hint={`${Math.max(totals.total - totals.resolved, 0)} still in the system`}
+            tone="success"
+            to="/staff/queue?scope=resolved"
+          />
+        </div>
+      </section>
 
       <Suspense
         fallback={
@@ -121,9 +340,37 @@ export function AdminDashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Department performance" />
+          <CardHeader
+            title="Department performance"
+            description="Sorted by overdue load. Select any number to open the matching queue."
+            action={
+              auth.hasPermission('department:manage') ? (
+                <Link
+                  to="/admin/departments"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline dark:text-indigo-300"
+                >
+                  All departments
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                </Link>
+              ) : undefined
+            }
+          />
           {data.departments.length === 0 ? (
-            <EmptyState title="No departments configured" />
+            <EmptyState
+              title="No departments configured"
+              description="Add the offices that receive reports to start routing work."
+              action={
+                auth.hasPermission('department:manage') ? (
+                  <Link
+                    to="/admin/departments"
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                  >
+                    Set up departments
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                ) : undefined
+              }
+            />
           ) : (
             <Table>
               <thead>
@@ -131,30 +378,63 @@ export function AdminDashboardPage() {
                   <Th>Department</Th>
                   <Th>Total</Th>
                   <Th>Open</Th>
+                  <Th>Unassigned</Th>
                   <Th>Overdue</Th>
                   <Th>Target</Th>
                 </tr>
               </thead>
               <tbody>
-                {data.departments.map((department) => (
-                  <Tr key={department.id}>
-                    <Td className="text-sm font-medium text-slate-800">{department.name}</Td>
-                    <Td>{department.total}</Td>
-                    <Td>{department.open}</Td>
-                    <Td>
-                      {department.overdue > 0 ? (
-                        <Badge tone="danger">{department.overdue}</Badge>
-                      ) : (
-                        '0'
-                      )}
-                    </Td>
-                    <Td className="text-xs text-slate-500">
-                      {department.resolutionTargetMinutes
-                        ? formatMinutesAsDuration(department.resolutionTargetMinutes)
-                        : '—'}
-                    </Td>
-                  </Tr>
-                ))}
+                {departmentsByRisk.map((department) => {
+                  const departmentQueue = `/staff/queue?departmentId=${department.id}`;
+                  return (
+                    <Tr key={department.id}>
+                      <Td>
+                        <Link
+                          to={departmentQueue}
+                          className="text-sm font-medium text-slate-800 hover:text-indigo-700 hover:underline dark:text-slate-200"
+                        >
+                          {department.name}
+                        </Link>
+                      </Td>
+                      <Td>
+                        <Link to={departmentQueue} className="hover:text-indigo-700 hover:underline">
+                          {department.total}
+                        </Link>
+                      </Td>
+                      <Td>
+                        <Link
+                          to={`${departmentQueue}&scope=open`}
+                          className="hover:text-indigo-700 hover:underline"
+                        >
+                          {department.open}
+                        </Link>
+                      </Td>
+                      <Td>
+                        {department.unassigned > 0 ? (
+                          <Link to={`${departmentQueue}&scope=unassigned`}>
+                            <Badge tone="warning">{department.unassigned}</Badge>
+                          </Link>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-500">0</span>
+                        )}
+                      </Td>
+                      <Td>
+                        {department.overdue > 0 ? (
+                          <Link to={`${departmentQueue}&scope=overdue`}>
+                            <Badge tone="danger">{department.overdue}</Badge>
+                          </Link>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-500">0</span>
+                        )}
+                      </Td>
+                      <Td className="text-xs text-slate-500 dark:text-slate-400">
+                        {department.resolutionTargetMinutes
+                          ? formatMinutesAsDuration(department.resolutionTargetMinutes)
+                          : '—'}
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
           )}
@@ -163,33 +443,69 @@ export function AdminDashboardPage() {
         <Card>
           <CardHeader
             title="Delivery and job health"
-            description="Background worker and email provider status."
+            description="Notification delivery and background job status."
+            action={
+              health.isLoading ? null : health.isError ? (
+                <Badge tone="danger">Unavailable</Badge>
+              ) : (
+                <Badge tone={healthy ? 'success' : 'danger'}>
+                  {healthy ? 'All systems normal' : 'Action required'}
+                </Badge>
+              )
+            }
           />
-          <CardBody className="space-y-3">
+          <CardBody className="space-y-4">
             {health.isLoading ? (
-              <LoadingState />
+              <LoadingState label="Checking delivery health…" />
             ) : health.isError ? (
               <ErrorState description={errorMessage(health.error)} />
             ) : (
               <>
-                <HealthRow label="Email provider" value={health.data!.emailProvider} />
-                <HealthRow label="Pending jobs" value={String(health.data!.jobs.pending)} />
-                <HealthRow label="Running jobs" value={String(health.data!.jobs.running)} />
-                <HealthRow
-                  label="Failed jobs"
-                  value={String(health.data!.jobs.failed)}
-                  tone={health.data!.jobs.failed > 0 ? 'danger' : 'default'}
-                />
-                <HealthRow
-                  label="Notifications sent"
-                  value={String(health.data!.notifications.sent)}
-                />
-                <HealthRow
-                  label="Failed notifications"
-                  value={String(health.data!.notifications.failed)}
-                  tone={health.data!.notifications.failed > 0 ? 'danger' : 'default'}
-                />
-                <RetryFailedNotifications />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <section aria-label="Background jobs">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                      Background jobs
+                    </h3>
+                    <dl className="mt-2 space-y-2">
+                      <HealthRow label="Pending" value={String(health.data!.jobs.pending)} />
+                      <HealthRow label="Running" value={String(health.data!.jobs.running)} />
+                      <HealthRow
+                        label="Failed"
+                        value={String(health.data!.jobs.failed)}
+                        tone={health.data!.jobs.failed > 0 ? 'danger' : 'default'}
+                      />
+                    </dl>
+                  </section>
+                  <section aria-label="Notifications">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                      Notifications
+                    </h3>
+                    <dl className="mt-2 space-y-2">
+                      <HealthRow label="Provider" value={health.data!.emailProvider} />
+                      <HealthRow
+                        label="Sent"
+                        value={String(health.data!.notifications.sent)}
+                      />
+                      <HealthRow
+                        label="Failed"
+                        value={String(health.data!.notifications.failed)}
+                        tone={health.data!.notifications.failed > 0 ? 'danger' : 'default'}
+                      />
+                    </dl>
+                  </section>
+                </div>
+
+                {health.data!.notifications.failed > 0 ? (
+                  <RetryFailedNotifications className="w-full sm:w-auto" />
+                ) : null}
+
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {failedJobs > 0
+                    ? 'Failed jobs need investigation in the worker before they can clear.'
+                    : failedNotifications > 0
+                      ? 'Retry the failed notifications once the email provider is reachable.'
+                      : 'No failed jobs or notifications are waiting.'}
+                </p>
               </>
             )}
           </CardBody>
@@ -197,26 +513,59 @@ export function AdminDashboardPage() {
       </div>
 
       <Card>
-        <CardHeader title="Timeliness" />
+        <CardHeader
+          title="Service timeliness"
+          description="Rolling averages across every report, compared with the institution targets."
+        />
         <CardBody className="grid gap-4 sm:grid-cols-2">
-          <StatCard
+          <TimelinessMetric
             label="Average first response"
-            value={
-              data.timings.averageFirstResponseMinutes === null
-                ? '—'
-                : formatMinutesAsDuration(data.timings.averageFirstResponseMinutes)
-            }
+            minutes={data.timings.averageFirstResponseMinutes}
+            targetMinutes={8 * 60}
+            targetLabel="8 hours"
           />
-          <StatCard
+          <TimelinessMetric
             label="Average resolution"
-            value={
-              data.timings.averageResolutionMinutes === null
-                ? '—'
-                : formatMinutesAsDuration(data.timings.averageResolutionMinutes)
-            }
+            minutes={data.timings.averageResolutionMinutes}
+            targetMinutes={72 * 60}
+            targetLabel="72 hours"
           />
         </CardBody>
       </Card>
+    </div>
+  );
+}
+
+function TimelinessMetric({
+  label,
+  minutes,
+  targetMinutes,
+  targetLabel,
+}: {
+  label: string;
+  minutes: number | null;
+  targetMinutes: number;
+  targetLabel: string;
+}) {
+  const withinTarget = minutes !== null && minutes <= targetMinutes;
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
+        {minutes === null ? (
+          <Badge>No data yet</Badge>
+        ) : (
+          <Badge tone={withinTarget ? 'success' : 'danger'}>
+            {withinTarget ? 'Within target' : 'Over target'}
+          </Badge>
+        )}
+      </div>
+      <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-slate-900 dark:text-white">
+        {minutes === null ? 'No data' : formatMinutesAsDuration(minutes)}
+      </p>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        Institution target: {targetLabel}
+      </p>
     </div>
   );
 }
@@ -231,10 +580,14 @@ function HealthRow({
   tone?: 'default' | 'danger';
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-sm last:border-0">
-      <span className="text-slate-500">{label}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2 text-sm last:border-0 dark:border-slate-800">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
       <span
-        className={tone === 'danger' ? 'font-semibold text-rose-600' : 'font-medium text-slate-900'}
+        className={
+          tone === 'danger'
+            ? 'font-semibold text-rose-600 dark:text-rose-400'
+            : 'font-medium text-slate-900 dark:text-white'
+        }
       >
         {value}
       </span>
@@ -242,7 +595,7 @@ function HealthRow({
   );
 }
 
-function RetryFailedNotifications() {
+function RetryFailedNotifications({ className }: { className?: string } = {}) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const retry = useMutation({
@@ -260,7 +613,7 @@ function RetryFailedNotifications() {
   return (
     <Button
       variant="secondary"
-      className="w-full"
+      className={cn('w-full', className)}
       loading={retry.isPending}
       onClick={() => retry.mutate()}
     >
@@ -1710,15 +2063,5 @@ export function AdminSettingsPage() {
 }
 
 export function AdminHomeRedirect() {
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-600">
-        Choose an area from the sidebar, or open the{' '}
-        <Link to="/admin/dashboard" className="font-semibold text-indigo-700 hover:underline">
-          operations dashboard
-        </Link>
-        .
-      </p>
-    </div>
-  );
+  return <Navigate to="/admin/dashboard" replace />;
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,9 +41,13 @@ import {
   useDepartmentOfficers,
   useMyTickets,
   useNotifications,
+  useRoleDashboard,
 } from './api';
 
-const OPEN_STATUSES = ['ASSIGNED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'AWAITING_EXTERNAL', 'ESCALATED'];
+// Charts are loaded only when a dashboard is opened.
+const RoleDashboardCharts = lazy(() =>
+  import('../admin/charts').then((module) => ({ default: module.RoleDashboardCharts })),
+);
 
 /* -------------------------------------------------------------------------- */
 /* Student dashboard                                                          */
@@ -51,67 +55,129 @@ const OPEN_STATUSES = ['ASSIGNED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'AWAITING_EXTE
 
 export function StudentDashboardPage() {
   const auth = useAuth();
+  const dashboard = useRoleDashboard();
   const tickets = useMyTickets({ pageSize: 100 });
   const notifications = useNotifications();
 
   const items = tickets.data?.items ?? [];
-  const counts = useMemo(
-    () => ({
-      total: items.length,
-      inProgress: items.filter((ticket) => OPEN_STATUSES.includes(ticket.status)).length,
-      awaitingStudent: items.filter((ticket) => ticket.status === 'AWAITING_STUDENT').length,
-      resolved: items.filter((ticket) => ['RESOLVED', 'CLOSED'].includes(ticket.status)).length,
-    }),
-    [items],
-  );
-
   const needsAttention = items.filter((ticket) => ticket.status === 'AWAITING_STUDENT');
   const recent = [...items]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 6);
 
-  if (tickets.isLoading) return <LoadingState label="Loading your reports…" />;
-  if (tickets.isError) {
+  if (tickets.isLoading || dashboard.isLoading) {
+    return <LoadingState label="Loading your dashboard…" />;
+  }
+  if (tickets.isError || dashboard.isError) {
     return (
       <ErrorState
-        description={errorMessage(tickets.error)}
-        action={<Button onClick={() => void tickets.refetch()}>Try again</Button>}
+        description={errorMessage(tickets.error ?? dashboard.error)}
+        action={
+          <Button
+            onClick={() => {
+              void tickets.refetch();
+              void dashboard.refetch();
+            }}
+          >
+            Try again
+          </Button>
+        }
       />
     );
   }
 
+  const data = dashboard.data!.dashboard;
+  const totals = data.totals;
+  const hasReports = totals.total > 0;
+
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-            Welcome back{auth.user?.fullName ? `, ${auth.user.fullName.split(' ')[0]}` : ''}
-          </h1>
-          <p className="text-sm text-slate-500">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Welcome back{auth.user?.fullName ? `, ${auth.user.fullName.split(' ')[0]}` : ''}
+            </h1>
+            <Badge tone="info">Student</Badge>
+          </div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {auth.user?.studentId ? `Student ID ${auth.user.studentId}. ` : ''}
             Here is where your reports stand and what needs your attention.
           </p>
         </div>
-        <Link to="/tickets/new">
-          <Button>Create new report</Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/tickets"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300"
+          >
+            View all reports
+          </Link>
+          <Link to="/tickets/new">
+            <Button>Create new report</Button>
+          </Link>
+        </div>
       </header>
 
+      {totals.newSinceLastLogin > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 dark:border-indigo-900 dark:bg-indigo-950/40">
+          <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">
+            {totals.newSinceLastLogin} update{totals.newSinceLastLogin === 1 ? '' : 's'} since your
+            last visit
+          </p>
+          <Link
+            to="/tickets"
+            className="text-xs font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
+          >
+            Review your reports
+          </Link>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Reports submitted" value={counts.total} />
-        <StatCard label="In progress" value={counts.inProgress} />
+        <StatCard
+          label="Reports submitted"
+          value={totals.submittedByMe}
+          hint={hasReports ? 'Every report you own' : 'Your first report starts here'}
+        />
+        <StatCard
+          label="Open now"
+          value={totals.open}
+          hint={totals.open > 0 ? 'Still being handled' : 'Nothing open right now'}
+        />
         <StatCard
           label="Awaiting your response"
-          value={counts.awaitingStudent}
-          tone={counts.awaitingStudent > 0 ? 'warning' : 'default'}
+          value={totals.awaitingStudent}
+          tone={totals.awaitingStudent > 0 ? 'warning' : 'default'}
           hint={
-            counts.awaitingStudent > 0 ? 'Please open these reports' : 'Nothing needs you right now'
+            totals.awaitingStudent > 0 ? 'Please open these reports' : 'Nothing needs you right now'
           }
         />
-        <StatCard label="Resolved" value={counts.resolved} tone="success" />
+        <StatCard
+          label="Resolved"
+          value={totals.resolved}
+          tone="success"
+          hint={
+            hasReports ? `${Math.round(totals.resolutionRate)}% of your reports resolved` : 'No reports yet'
+          }
+        />
       </div>
 
+      {hasReports ? (
+        <Suspense
+          fallback={
+            <Card>
+              <CardBody>
+                <LoadingState label="Loading your charts…" />
+              </CardBody>
+            </Card>
+          }
+        >
+          <RoleDashboardCharts dashboard={data} audience="student" />
+        </Suspense>
+      ) : null}
+
       {needsAttention.length > 0 ? (
-        <Card className="border-amber-200 bg-amber-50/60">
+        <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/30">
           <CardHeader
             title="Reports waiting for you"
             description="A department officer has asked for more information."
@@ -121,10 +187,14 @@ export function StudentDashboardPage() {
               <Link
                 key={ticket.id}
                 to={`/tickets/${ticket.id}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-4 py-3 ring-1 ring-amber-200 hover:ring-amber-400"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-4 py-3 ring-1 ring-amber-200 hover:ring-amber-400 dark:bg-slate-900 dark:ring-amber-800"
               >
-                <span className="font-medium text-slate-900">{ticket.subject}</span>
-                <span className="font-mono text-xs text-slate-500">{ticket.referenceNumber}</span>
+                <span className="font-medium text-slate-900 dark:text-slate-100">
+                  {ticket.subject}
+                </span>
+                <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                  {ticket.referenceNumber}
+                </span>
               </Link>
             ))}
           </CardBody>
@@ -136,7 +206,10 @@ export function StudentDashboardPage() {
           <CardHeader
             title="Recently updated reports"
             action={
-              <Link to="/tickets" className="text-xs font-semibold text-indigo-700 hover:underline">
+              <Link
+                to="/tickets"
+                className="text-xs font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
+              >
                 View all
               </Link>
             }
@@ -168,7 +241,7 @@ export function StudentDashboardPage() {
                     <Td>
                       <Link
                         to={`/tickets/${ticket.id}`}
-                        className="font-medium text-indigo-700 hover:underline"
+                        className="font-medium text-indigo-700 hover:underline dark:text-indigo-300"
                       >
                         {ticket.subject}
                       </Link>
@@ -176,7 +249,9 @@ export function StudentDashboardPage() {
                     <Td>
                       <StatusBadge status={ticket.status} label={ticket.statusLabel} />
                     </Td>
-                    <Td className="text-xs text-slate-500">{relativeTime(ticket.updatedAt)}</Td>
+                    <Td className="text-xs text-slate-500 dark:text-slate-400">
+                      {relativeTime(ticket.updatedAt)}
+                    </Td>
                   </Tr>
                 ))}
               </tbody>
@@ -188,14 +263,17 @@ export function StudentDashboardPage() {
           <CardHeader title="Notifications" description="Recent messages about your reports." />
           <CardBody className="space-y-2">
             {(notifications.data?.items ?? []).length === 0 ? (
-              <p className="text-sm text-slate-500">No notifications yet.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">No notifications yet.</p>
             ) : (
               (notifications.data?.items ?? []).slice(0, 8).map((notification) => (
-                <div key={notification.id} className="rounded-lg bg-slate-50 px-3 py-2">
-                  <p className="text-xs font-medium text-slate-800">
+                <div
+                  key={notification.id}
+                  className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60"
+                >
+                  <p className="text-xs font-medium text-slate-800 dark:text-slate-200">
                     {notification.type.replace(/_/g, ' ').toLowerCase()}
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {formatDateTime(notification.createdAt)}
                   </p>
                 </div>

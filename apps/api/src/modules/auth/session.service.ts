@@ -92,6 +92,8 @@ export async function resolveSession(sessionToken: string): Promise<ResolvedSess
     email: session.user.email,
     fullName: session.user.fullName,
     studentId: session.user.studentId,
+    phone: session.user.phone,
+    preferredContactMethod: session.user.preferredContactMethod,
     emailVerified: session.user.emailVerifiedAt !== null,
     accountStatus: session.user.accountStatus as AuthContext['accountStatus'],
     roles,
@@ -103,6 +105,7 @@ export async function resolveSession(sessionToken: string): Promise<ResolvedSess
       isActive: membership.isActive,
     })),
     lastLoginAt: session.user.lastLoginAt,
+    createdAt: session.user.createdAt,
     mustChangePassword: (session.user as any).mustChangePassword ?? false,
   };
 

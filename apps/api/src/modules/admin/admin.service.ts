@@ -584,8 +584,8 @@ export async function updateCategory(
 }
 
 /** Turns a JSON metadata value into one readable sentence for the audit table. */
-function describeAuditValue(value: Prisma.JsonValue | null): string {
-  if (value === null) return 'None';
+function describeAuditValue(value: Prisma.JsonValue | null | undefined): string {
+  if (value === null || value === undefined) return 'None';
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (Array.isArray(value)) {
@@ -600,6 +600,7 @@ function humanizeAuditKey(key: string): string {
   const spaced = key
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
+    .replace(/\bId\b/g, 'ID')
     .trim();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

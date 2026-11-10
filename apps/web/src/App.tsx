@@ -51,9 +51,6 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/error" element={<ErrorPage status={404} />} />
         <Route path="/error/:code" element={<ErrorPage />} />
-      </Route>
-
-      <Route element={<MarketingLayout />}>
         <Route path="*" element={<ErrorPage status={404} />} />
       </Route>
 

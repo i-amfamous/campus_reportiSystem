@@ -43,18 +43,6 @@ const NAV_ITEMS: NavItem[] = [
     visible: (auth) => !auth.isStaff,
   },
   {
-    to: '/staff',
-    label: 'Staff overview',
-    icon: LayoutDashboard,
-    visible: (auth) => auth.isStaff,
-  },
-  {
-    to: '/staff/queue',
-    label: 'Work queue',
-    icon: ClipboardList,
-    visible: (auth) => auth.isStaff,
-  },
-  {
     to: '/admin/dashboard',
     label: 'Operations',
     icon: ShieldCheck,
@@ -101,6 +89,18 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Backup & restore',
     icon: DatabaseBackup,
     visible: (auth) => auth.hasPermission('system:backup'),
+  },
+  {
+    to: '/staff',
+    label: 'Staff overview',
+    icon: LayoutDashboard,
+    visible: (auth) => auth.isStaff,
+  },
+  {
+    to: '/staff/queue',
+    label: 'Work queue',
+    icon: ClipboardList,
+    visible: (auth) => auth.isStaff,
   },
 ];
 

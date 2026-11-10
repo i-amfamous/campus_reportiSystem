@@ -65,7 +65,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-label={`Switch to ${nextTheme} mode`}
       title={`Switch to ${nextTheme} mode`}
       className={cn(
-        'rounded-lg p-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900',
+        'rounded-lg p-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
         className,
       )}
     >

@@ -4,6 +4,18 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  AlertTriangle,
+  Building2,
+  Check,
+  Clock3,
+  Copy,
+  KeyRound,
+  Mail,
+  Palette,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react';
+import {
   acceptInvitationSchema,
   loginSchema,
   registerSchema,
@@ -11,20 +23,26 @@ import {
   resetPasswordSchema,
   changePasswordSchema,
   deleteAccountSchema,
+  updateProfileSchema,
   ACCOUNT_DELETION_CONFIRMATION,
+  ROLE_LABELS,
   normalizeEmail,
   verifyOtpSchema,
 } from '@campus-resolve/shared';
 import { api, ApiError } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { useTheme } from '../../lib/theme';
 import {
   Button,
   Card,
   CardBody,
+  CardHeader,
   Dialog,
   FormField,
   Input,
   PasswordField,
+  Select,
+  cn,
   useToast,
 } from '../../components/ui';
 
@@ -126,7 +144,9 @@ export function LoginPage() {
     try {
       await api.post('/api/v1/auth/login', values);
       await auth.refresh();
-      navigate('/dashboard', { replace: true });
+      // Role-aware landing: HomeRedirect sends students, staff, and admins to
+      // the dashboard that matches their permissions.
+      navigate('/home', { replace: true });
     } catch (caught) {
       const apiError = caught as ApiError;
       if (apiError.code === 'EMAIL_NOT_VERIFIED') {
@@ -766,117 +786,614 @@ export function ResetPasswordPage() {
 /* Profile                                                                    */
 /* -------------------------------------------------------------------------- */
 
+const CONTACT_OPTIONS = [
+  { value: 'EMAIL', label: 'Email' },
+  { value: 'PHONE', label: 'Phone call' },
+  { value: 'IN_PERSON', label: 'In person' },
+] as const;
+
+type ProfileFormValues = z.infer<typeof updateProfileSchema>;
+
+const PROFILE_SECTIONS = [
+  { id: 'identity', label: 'Profile', icon: UserRound },
+  { id: 'security', label: 'Password and security', icon: ShieldCheck },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'privacy', label: 'Data and privacy', icon: AlertTriangle },
+] as const;
+
+function initialsOf(name: string | undefined): string {
+  if (!name) return 'CR';
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
+function readableDate(value: string | null | undefined): string {
+  if (!value) return 'Not recorded';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not recorded';
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function readableDateTime(value: string | null | undefined): string {
+  if (!value) return 'Not recorded';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not recorded';
+  return date.toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function AccountFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-5 py-4 sm:px-6">
+      <dt className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd className="mt-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function SecurityFact({
+  icon: Icon,
+  label,
+  value,
+  tone = 'default',
+}: {
+  icon: typeof Mail;
+  label: string;
+  value: string;
+  tone?: 'default' | 'success' | 'warning';
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+      <span
+        className={cn(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+          tone === 'success'
+            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+            : tone === 'warning'
+              ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+              : 'bg-white text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800',
+        )}
+      >
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 export function ProfilePage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const { theme, setTheme } = useTheme();
   const [error, setError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [dangerOpen, setDangerOpen] = useState(false);
-  const form = useForm<z.infer<typeof changePasswordSchema>>({
+
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(updateProfileSchema),
+    defaultValues: {
+      fullName: auth.user?.fullName ?? '',
+      phone: auth.user?.phone ?? '',
+      preferredContactMethod:
+        (auth.user?.preferredContactMethod as ProfileFormValues['preferredContactMethod']) ??
+        'EMAIL',
+    },
+  });
+  const { reset: resetProfileForm } = profileForm;
+
+  const passwordForm = useForm<z.infer<typeof changePasswordSchema>>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { currentPassword: '', newPassword: '' },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  useEffect(() => {
+    resetProfileForm({
+      fullName: auth.user?.fullName ?? '',
+      phone: auth.user?.phone ?? '',
+      preferredContactMethod:
+        (auth.user?.preferredContactMethod as ProfileFormValues['preferredContactMethod']) ??
+        'EMAIL',
+    });
+  }, [auth.user?.fullName, auth.user?.phone, auth.user?.preferredContactMethod, resetProfileForm]);
+
+  const onSaveProfile = profileForm.handleSubmit(async (values) => {
+    setProfileError(null);
+    try {
+      await api.patch('/api/v1/auth/me', values);
+      await auth.refresh();
+      toast.push({
+        tone: 'success',
+        title: 'Profile updated',
+        description: 'Your account details are now up to date.',
+      });
+    } catch (caught) {
+      setProfileError((caught as ApiError).message);
+    }
+  });
+
+  const onPasswordSubmit = passwordForm.handleSubmit(async (values) => {
     setError(null);
     try {
       await api.post('/api/v1/auth/change-password', values);
-      form.reset();
+      passwordForm.reset();
       toast.push({ tone: 'success', title: 'Password updated' });
     } catch (caught) {
       setError((caught as ApiError).message);
     }
   });
 
+  const copyEmail = async () => {
+    if (!auth.user?.email) return;
+    try {
+      await navigator.clipboard.writeText(auth.user.email);
+      toast.push({ tone: 'success', title: 'Email copied' });
+    } catch {
+      toast.push({ tone: 'error', title: 'Could not copy the email address' });
+    }
+  };
+
+  const departmentNames = (auth.user?.departments ?? []).map((item) => item.departmentName);
+  const roles = auth.user?.roles ?? [];
+  const completionChecks = [
+    Boolean(auth.user?.fullName),
+    Boolean(auth.user?.emailVerified),
+    Boolean(auth.user?.phone),
+    Boolean(auth.user?.preferredContactMethod),
+  ];
+  const completion = Math.round(
+    (completionChecks.filter(Boolean).length / completionChecks.length) * 100,
+  );
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-          Your profile
-        </h1>
-        <p className="text-sm text-slate-500">Account details and password management.</p>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
+            Account settings
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Manage how you appear, how you sign in and how Campus Resolve works for you.
+          </p>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Changes save to your account, not just this browser.
+        </p>
       </header>
 
-      <Card>
-        <CardBody className="space-y-3 p-5 text-sm">
-          <Row label="Full name" value={auth.user?.fullName ?? '—'} />
-          <Row label="Email" value={auth.user?.email ?? '—'} />
-          <Row label="Student ID" value={auth.user?.studentId ?? 'Not recorded'} />
-          <Row label="Email verified" value={auth.user?.emailVerified ? 'Yes' : 'No'} />
-          <Row label="Roles" value={auth.user?.roles.join(', ') || '—'} />
-          <Row
-            label="Departments"
-            value={
-              auth.user?.departments.length
-                ? auth.user.departments
-                    .map(
-                      (department) => `${department.departmentName} (${department.departmentRole})`,
-                    )
-                    .join(', ')
-                : 'None'
-            }
+      <Card className="overflow-hidden">
+        <div className="relative border-b border-slate-200/80 bg-gradient-to-br from-brand-50 via-white to-teal-50 p-6 sm:p-8 dark:border-slate-800 dark:from-brand-950/40 dark:via-slate-900 dark:to-teal-950/30">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-40"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 1px 1px, rgba(64,123,217,0.18) 1px, transparent 0)',
+              backgroundSize: '22px 22px',
+            }}
+            aria-hidden
           />
-        </CardBody>
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <span
+                className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-teal-500 text-2xl font-semibold text-white shadow-lg shadow-brand-900/20"
+                aria-hidden
+              >
+                {initialsOf(auth.user?.fullName)}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-xl font-semibold tracking-[-0.02em] text-slate-950 dark:text-white">
+                    {auth.user?.fullName ?? 'Your account'}
+                  </h2>
+                  {auth.user?.emailVerified ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-400/20">
+                      <Check className="h-3 w-3" aria-hidden />
+                      Verified
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/15 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-400/20">
+                      Email not verified
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">
+                  {auth.user?.email}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {roles.map((role) => (
+                    <span
+                      key={role}
+                      className="inline-flex items-center rounded-md bg-white/80 px-2 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-slate-900/10 dark:bg-slate-900/70 dark:text-slate-300 dark:ring-white/10"
+                    >
+                      {ROLE_LABELS[role as keyof typeof ROLE_LABELS] ?? role}
+                    </span>
+                  ))}
+                  {departmentNames.map((name) => (
+                    <span
+                      key={name}
+                      className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800 ring-1 ring-brand-600/15 dark:bg-brand-950/50 dark:text-brand-300 dark:ring-brand-400/20"
+                    >
+                      <Building2 className="h-3 w-3" aria-hidden />
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full max-w-xs rounded-xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/70">
+              <div className="flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+                <span>Profile completeness</span>
+                <span className="tabular-nums">{completion}%</span>
+              </div>
+              <div
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+                role="img"
+                aria-label={`Profile completeness ${completion} percent`}
+              >
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-brand-500 to-teal-400"
+                  style={{ width: `${completion}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {completion === 100
+                  ? 'Everything we need is on file.'
+                  : 'Add a phone number and contact preference to finish.'}
+              </p>
+            </div>
+          </div>
+        </div>
+        <dl className="grid divide-y divide-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-slate-800">
+          <AccountFact label="Member since" value={readableDate(auth.user?.createdAt)} />
+          <AccountFact label="Last sign in" value={readableDateTime(auth.user?.lastLoginAt)} />
+          <AccountFact label="Account status" value={auth.user?.accountStatus ?? 'Unknown'} />
+        </dl>
       </Card>
 
-      <Card>
-        <CardBody className="space-y-4 p-5">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-900">Change password</h2>
-            <p className="text-xs text-slate-500">
-              Use at least 10 characters with upper case, lower case and a number.
+      <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <nav
+            aria-label="Account settings sections"
+            className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
+          >
+            {PROFILE_SECTIONS.map((section) => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white"
+              >
+                <section.icon className="h-4 w-4 text-slate-400 dark:text-slate-500" aria-hidden />
+                {section.label}
+              </a>
+            ))}
+          </nav>
+          <div className="mt-4 hidden rounded-xl border border-slate-200 bg-white p-4 lg:block dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Signed in as
+              <span className="mt-1 block truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                {auth.user?.email}
+              </span>
             </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={async () => {
+                await auth.signOut();
+                navigate('/', { replace: true });
+              }}
+            >
+              Sign out
+            </Button>
           </div>
-          {error ? (
-            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {error}
-            </div>
-          ) : null}
-          <form className="grid gap-4 sm:grid-cols-2" onSubmit={onSubmit} noValidate>
-            <FormField
-              label="Current password"
-              htmlFor="currentPassword"
-              required
-              error={form.formState.errors.currentPassword?.message}
-            >
-              <PasswordField
-                id="currentPassword"
-                autoComplete="current-password"
-                {...form.register('currentPassword')}
-              />
-            </FormField>
-            <FormField
-              label="New password"
-              htmlFor="newPassword"
-              required
-              error={form.formState.errors.newPassword?.message}
-            >
-              <PasswordField id="newPassword" autoComplete="new-password" {...form.register('newPassword')} />
-            </FormField>
-            <div className="sm:col-span-2">
-              <Button type="submit" loading={form.formState.isSubmitting}>
-                Update password
-              </Button>
-            </div>
-          </form>
-        </CardBody>
-      </Card>
+        </aside>
 
-      <Card className="border-rose-200">
-        <CardBody className="space-y-4 p-5">
-          <div>
-            <h2 className="text-sm font-semibold text-rose-700">Danger zone</h2>
-            <p className="text-xs text-slate-500">
-              Deleting your account removes your name, email address, password and every message
-              the system sent you, and signs you out for good. The reports you submitted and the
-              audit trail stay on record so the institution keeps its history.
-            </p>
-          </div>
-          <Button variant="danger" onClick={() => setDangerOpen(true)}>
-            Delete my account
-          </Button>
-        </CardBody>
-      </Card>
+        <div className="min-w-0 space-y-6">
+          <Card id="identity" className="scroll-mt-24">
+            <CardHeader
+              title="Profile"
+              description="Your name and contact details travel with every report you submit."
+              action={
+                <Button variant="secondary" size="sm" onClick={() => void copyEmail()}>
+                  <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  Copy email
+                </Button>
+              }
+            />
+            <CardBody>
+              {profileError ? (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                >
+                  {profileError}
+                </div>
+              ) : null}
+              <form className="grid gap-4 sm:grid-cols-2" onSubmit={onSaveProfile} noValidate>
+                <FormField
+                  label="Full name"
+                  htmlFor="profile-fullName"
+                  required
+                  error={profileForm.formState.errors.fullName?.message}
+                >
+                  <Input
+                    id="profile-fullName"
+                    autoComplete="name"
+                    {...profileForm.register('fullName')}
+                  />
+                </FormField>
+                <FormField label="Email address" htmlFor="profile-email">
+                  <Input
+                    id="profile-email"
+                    value={auth.user?.email ?? ''}
+                    readOnly
+                    className="bg-slate-50 text-slate-500 dark:bg-slate-800/60 dark:text-slate-400"
+                  />
+                </FormField>
+                <FormField label="Student ID" htmlFor="profile-studentId">
+                  <Input
+                    id="profile-studentId"
+                    value={auth.user?.studentId ?? 'Not recorded'}
+                    readOnly
+                    className="bg-slate-50 text-slate-500 dark:bg-slate-800/60 dark:text-slate-400"
+                  />
+                </FormField>
+                <FormField
+                  label="Phone number"
+                  htmlFor="profile-phone"
+                  hint="Used only when your preferred contact method is a phone call."
+                >
+                  <Input
+                    id="profile-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder="+233 20 000 0000"
+                    {...profileForm.register('phone')}
+                  />
+                </FormField>
+                <FormField
+                  label="Preferred contact method"
+                  htmlFor="profile-contact"
+                  hint="Officers use this when they need more information from you."
+                >
+                  <Select id="profile-contact" {...profileForm.register('preferredContactMethod')}>
+                    {CONTACT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Email address and student ID are managed by the institution.
+                  </p>
+                  <Button
+                    type="submit"
+                    loading={profileForm.formState.isSubmitting}
+                    disabled={!profileForm.formState.isDirty}
+                  >
+                    Save changes
+                  </Button>
+                </div>
+              </form>
+            </CardBody>
+          </Card>
+
+          <Card id="security" className="scroll-mt-24">
+            <CardHeader
+              title="Password and security"
+              description="Your sign-in details and the devices that can reach this account."
+            />
+            <CardBody className="space-y-6">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SecurityFact
+                  icon={Mail}
+                  label="Email status"
+                  value={auth.user?.emailVerified ? 'Verified' : 'Not verified'}
+                  tone={auth.user?.emailVerified ? 'success' : 'warning'}
+                />
+                <SecurityFact
+                  icon={Clock3}
+                  label="Last sign in"
+                  value={readableDateTime(auth.user?.lastLoginAt)}
+                />
+                <SecurityFact icon={KeyRound} label="Password" value="Set and private" />
+                <SecurityFact
+                  icon={ShieldCheck}
+                  label="Account status"
+                  value={auth.user?.accountStatus ?? 'Unknown'}
+                  tone={auth.user?.accountStatus === 'ACTIVE' ? 'success' : 'warning'}
+                />
+              </div>
+
+              <div className="border-t border-slate-200 pt-5 dark:border-slate-800">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Change your password
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Use at least 10 characters with upper case, lower case and a number.
+                </p>
+                {error ? (
+                  <div
+                    role="alert"
+                    className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                  >
+                    {error}
+                  </div>
+                ) : null}
+                <form
+                  className="mt-4 grid gap-4 sm:grid-cols-2"
+                  onSubmit={onPasswordSubmit}
+                  noValidate
+                >
+                  <FormField
+                    label="Current password"
+                    htmlFor="currentPassword"
+                    required
+                    error={passwordForm.formState.errors.currentPassword?.message}
+                  >
+                    <PasswordField
+                      id="currentPassword"
+                      autoComplete="current-password"
+                      {...passwordForm.register('currentPassword')}
+                    />
+                  </FormField>
+                  <FormField
+                    label="New password"
+                    htmlFor="newPassword"
+                    required
+                    error={passwordForm.formState.errors.newPassword?.message}
+                  >
+                    <PasswordField
+                      id="newPassword"
+                      autoComplete="new-password"
+                      {...passwordForm.register('newPassword')}
+                    />
+                  </FormField>
+                  <div className="sm:col-span-2">
+                    <Button type="submit" loading={passwordForm.formState.isSubmitting}>
+                      Update password
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card id="appearance" className="scroll-mt-24">
+            <CardHeader
+              title="Appearance"
+              description="Choose how Campus Resolve looks on this device. The choice is remembered here."
+            />
+            <CardBody>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {(
+                  [
+                    {
+                      value: 'light',
+                      label: 'Light',
+                      description: 'Crisp paper tones for daytime work.',
+                    },
+                    {
+                      value: 'dark',
+                      label: 'Dark',
+                      description: 'Lower glare for long sessions.',
+                    },
+                  ] as const
+                ).map((option) => {
+                  const selected = theme === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setTheme(option.value)}
+                      aria-pressed={selected}
+                      className={cn(
+                        'relative overflow-hidden rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+                        selected
+                          ? 'border-brand-500 ring-1 ring-brand-500 dark:border-brand-400 dark:ring-brand-400'
+                          : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700',
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'rounded-lg border p-3',
+                          option.value === 'light'
+                            ? 'border-slate-200 bg-slate-50'
+                            : 'border-slate-700 bg-slate-950',
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'h-2.5 w-20 rounded-full',
+                            option.value === 'light' ? 'bg-slate-300' : 'bg-slate-700',
+                          )}
+                        />
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          {[0, 1, 2].map((index) => (
+                            <div
+                              key={index}
+                              className={cn(
+                                'h-10 rounded-md',
+                                option.value === 'light'
+                                  ? index === 0
+                                    ? 'bg-brand-200'
+                                    : 'bg-white ring-1 ring-slate-200'
+                                  : index === 0
+                                    ? 'bg-brand-900'
+                                    : 'bg-slate-900 ring-1 ring-slate-800',
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {option.label}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {option.description}
+                          </p>
+                        </div>
+                        {selected ? (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white">
+                            <Check className="h-3 w-3" aria-hidden />
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card id="privacy" className="scroll-mt-24 border-rose-200 dark:border-rose-900/60">
+            <CardHeader
+              title="Data and privacy"
+              description="These actions affect your account permanently."
+            />
+            <CardBody>
+              <div className="flex flex-col gap-4 rounded-xl border border-rose-200 bg-rose-50/60 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/60 dark:bg-rose-950/30">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                    <AlertTriangle className="h-4 w-4" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
+                      Delete my account
+                    </p>
+                    <p className="mt-0.5 max-w-xl text-xs text-rose-800/80 dark:text-rose-300/80">
+                      This removes your name, email address, password and notifications. Your
+                      submitted reports and the audit trail stay on record for the institution.
+                    </p>
+                  </div>
+                </div>
+                <Button variant="danger" onClick={() => setDangerOpen(true)}>
+                  Delete my account
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      </div>
 
       <DeleteAccountDialog
         open={dangerOpen}
@@ -982,14 +1499,5 @@ function DeleteAccountDialog({
         </FormField>
       </form>
     </Dialog>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-900">{value}</span>
-    </div>
   );
 }

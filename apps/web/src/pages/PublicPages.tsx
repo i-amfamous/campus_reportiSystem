@@ -1,20 +1,24 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   ArrowUpRight,
+  BarChart3,
+  Bell,
   Building2,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   FileText,
-  Gauge,
   GraduationCap,
+  Inbox,
   Layers3,
-  LifeBuoy,
+  LayoutDashboard,
   MessagesSquare,
-  Quote,
   ShieldCheck,
   Star,
   UserCog,
@@ -22,6 +26,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button, Card, CardBody, CardHeader, Input } from '../components/ui';
+import { FoldedProofSection } from '../components/FoldedProof';
 import { useAuth } from '../lib/auth';
 
 const FAQS: Array<{ question: string; answer: string }> = [
@@ -62,95 +67,50 @@ const FAQS: Array<{ question: string; answer: string }> = [
   },
 ];
 
-const TRUST_STATS = [
-  { value: '8h', label: 'First-response target' },
-  { value: '72h', label: 'Resolution target' },
-  { value: '100%', label: 'Actions audited' },
-  { value: '6', label: 'Departments connected' },
+const DEPARTMENTS = [
+  'Academic Affairs',
+  'ICT Support',
+  'Student Finance',
+  'Registration',
+  'Examinations',
+  'Estate and Facilities',
 ];
 
-const SOLUTIONS = [
+const ROLES = [
   {
-    icon: FileText,
-    index: '01',
-    title: 'Report once, reach the right desk',
-    description:
-      'Students describe the issue once. Campus Resolve attaches the correct department, category and service target automatically, with no forwarding chains and no guessing who to email.',
-    accent: 'bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300',
-  },
-  {
-    icon: Gauge,
-    index: '02',
-    title: 'Put every case on a clock',
-    description:
-      'First response and resolution targets are visible from day one. Reminders, escalation and breach tracking keep a report moving even when the week gets busy.',
-    accent: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  },
-  {
-    icon: MessagesSquare,
-    index: '03',
-    title: 'One shared record of the truth',
-    description:
-      'Public replies keep students informed. Internal notes stay with staff. Every status change, assignment and resolution is written to an audit trail that cannot be edited away.',
-    accent: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  },
-];
-
-const STEPS = [
-  {
-    title: 'Sign in with your student email',
-    description:
-      'Verified accounts keep the channel trusted. No forms lost in an inbox, no anonymous reports to chase.',
+    id: 'students',
+    label: 'Students',
     icon: GraduationCap,
-  },
-  {
-    title: 'Describe the issue once',
+    title: 'A clear answer, without the queue',
     description:
-      'Pick a category, add the details that matter and attach a receipt or screenshot if you have one.',
-    icon: FileText,
+      'One reference number, one live thread and one place to see who is working on the issue and what happens next.',
+    points: ['Live status and next step', 'Reply in the same thread', 'Reopen if the problem returns'],
   },
   {
-    title: 'Follow the clock',
-    description:
-      'Watch the first response and resolution targets, read every update and reply in the same thread.',
-    icon: Clock3,
-  },
-  {
-    title: 'Confirm the outcome',
-    description:
-      'Close the loop with feedback, or reopen the report if the problem returns. The record stays complete.',
-    icon: CheckCircle2,
-  },
-];
-
-const AUDIENCES = [
-  {
-    icon: GraduationCap,
-    title: 'Students',
-    description:
-      'A single place to raise an academic or administrative issue and see exactly where it stands.',
-    points: ['One report, one reference', 'Live status and reply thread', 'Reopen if it comes back'],
-    featured: true,
-  },
-  {
+    id: 'officers',
+    label: 'Officers',
     icon: UserCog,
-    title: 'Department officers',
+    title: 'A queue that tells you what is due',
     description:
-      'A prioritised queue with the context, service clocks and replies already in one place.',
+      'Cases arrive with the context, the service clock and the student history already attached, ordered by what needs attention first.',
     points: ['Clear ownership', 'Reminders before a breach', 'Internal notes stay internal'],
   },
   {
+    id: 'heads',
+    label: 'Department heads',
     icon: Users,
-    title: 'Department heads',
+    title: 'The truth about your department',
     description:
-      'See workload, overdue cases, escalations and satisfaction without asking for a status report.',
-    points: ['Live department metrics', 'Escalation history', 'SLA performance'],
+      'Workload, overdue cases, escalations and satisfaction in one view, without waiting for a monthly summary.',
+    points: ['Live department metrics', 'Escalation history', 'Service target performance'],
   },
   {
+    id: 'administrators',
+    label: 'Administrators',
     icon: ShieldCheck,
-    title: 'Administrators',
+    title: 'Control without the spreadsheets',
     description:
-      'Institution-wide visibility with the controls, exports and audit trail a serious service needs.',
+      'Institution-wide visibility with the roles, exports and audit trail a serious service needs.',
     points: ['Global analytics', 'Role-based access', 'Exportable audit trail'],
   },
 ];
@@ -160,7 +120,7 @@ const TESTIMONIALS = [
     quote:
       'I stopped emailing three different offices. I filed one report, saw who owned it, and knew when to expect a reply.',
     name: 'Ama S.',
-    role: 'BSc Computer Science · Level 400',
+    role: 'BSc Computer Science, Level 400',
   },
   {
     quote:
@@ -176,6 +136,15 @@ const TESTIMONIALS = [
   },
 ];
 
+const CAPABILITIES = [
+  { icon: ShieldCheck, label: 'Student email verification' },
+  { icon: Building2, label: 'Department routing' },
+  { icon: Clock3, label: 'Service targets' },
+  { icon: MessagesSquare, label: 'Public and internal replies' },
+  { icon: FileText, label: 'Audit trail' },
+  { icon: Layers3, label: 'CSV and PDF exports' },
+];
+
 function getHomeTarget(auth: ReturnType<typeof useAuth>): string {
   if (!auth.isAuthenticated) return '/login';
   if (auth.hasRole('SUPER_ADMIN') || auth.hasRole('ADMIN')) return '/admin/dashboard';
@@ -183,451 +152,486 @@ function getHomeTarget(auth: ReturnType<typeof useAuth>): string {
   return '/dashboard';
 }
 
+type CtaVariant = 'primary' | 'secondary' | 'invert' | 'outline' | 'dark-outline';
+
+const CTA_VARIANTS: Record<CtaVariant, string> = {
+  primary:
+    'bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700 dark:focus-visible:outline-brand-400',
+  secondary:
+    'bg-white text-slate-800 ring-1 ring-inset ring-slate-900/10 hover:bg-slate-50 focus-visible:outline-slate-500 dark:bg-slate-900 dark:text-slate-100 dark:ring-white/15 dark:hover:bg-slate-800',
+  invert:
+    'bg-[#ffffff] text-brand-800 hover:bg-brand-50 focus-visible:outline-white',
+  outline:
+    'bg-slate-950/25 text-white ring-1 ring-inset ring-white/40 hover:bg-slate-950/35 focus-visible:outline-white',
+  'dark-outline':
+    'text-white ring-1 ring-inset ring-white/25 hover:bg-white/10 focus-visible:outline-white',
+};
+
+function CtaLink({
+  to,
+  href,
+  variant = 'primary',
+  children,
+  icon,
+}: {
+  to?: string;
+  href?: string;
+  variant?: CtaVariant;
+  children: ReactNode;
+  icon?: ReactNode;
+}) {
+  const className = `inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${CTA_VARIANTS[variant]}`;
+  const content = (
+    <>
+      {children}
+      {icon}
+    </>
+  );
+  if (to) {
+    return (
+      <Link to={to} className={className}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <a href={href} className={className}>
+      {content}
+    </a>
+  );
+}
+
 export function HomePage() {
   const auth = useAuth();
   const target = getHomeTarget(auth);
   const primaryHref = auth.isAuthenticated ? target : '/register';
   const primaryLabel = auth.isAuthenticated ? 'Open your dashboard' : 'Get started free';
+  const [roleIndex, setRoleIndex] = useState(0);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  const role = ROLES[roleIndex]!;
+  const testimonial = TESTIMONIALS[quoteIndex]!;
+
+  const moveQuote = (direction: number) => {
+    setQuoteIndex((current) => (current + direction + TESTIMONIALS.length) % TESTIMONIALS.length);
+  };
 
   return (
-    <div className="overflow-hidden">
+    <div className="overflow-hidden bg-[#fafafa] dark:bg-slate-950">
       {/* ------------------------------------------------------------------ */}
       {/* Hero                                                               */}
       {/* ------------------------------------------------------------------ */}
-      <section className="relative isolate">
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute -top-64 left-1/2 h-[44rem] w-[80rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(64,123,217,0.30),rgba(64,123,217,0.07),transparent)] blur-2xl dark:opacity-30" />
-          <div className="absolute -right-40 top-10 h-[30rem] w-[30rem] rounded-full bg-sky-200/40 blur-3xl dark:bg-brand-800/20 dark:opacity-40" />
-          <div className="absolute -left-40 bottom-0 h-[26rem] w-[26rem] rounded-full bg-amber-100/60 blur-3xl dark:opacity-10" />
-          <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-b from-transparent to-white dark:to-slate-900" />
+      <section className="relative isolate overflow-hidden">
+        <div
+          aria-hidden
+          className="hero-grid pointer-events-none absolute inset-x-0 top-0 -z-20 h-[48rem]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-[-20rem] -z-10 h-[44rem] w-[62rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(64,123,217,0.20),rgba(64,123,217,0.06),transparent)] blur-2xl dark:bg-[radial-gradient(closest-side,rgba(64,123,217,0.28),transparent)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-[58%] top-[10rem] -z-10 h-[26rem] w-[30rem] rounded-full bg-[radial-gradient(closest-side,rgba(255,190,140,0.28),transparent)] blur-3xl dark:bg-[radial-gradient(closest-side,rgba(20,184,166,0.16),transparent)]"
+        />
+
+        <div className="relative mx-auto max-w-[1140px] px-5 pt-20 text-center sm:px-8 lg:pt-28">
+          <h1 className="mx-auto max-w-[56rem] text-[3rem] font-semibold leading-[0.98] tracking-[-0.05em] text-slate-950 sm:text-[4.4rem] lg:text-[5.6rem] dark:text-white">
+            Report it once.{' '}
+            <span className="block bg-gradient-to-r from-brand-700 via-brand-500 to-teal-600 bg-clip-text text-transparent dark:from-brand-300 dark:via-brand-400 dark:to-teal-300">
+              See it through.
+            </span>
+          </h1>
+
+          <p className="mx-auto mt-7 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg dark:text-slate-300">
+            Campus Resolve gives every academic and administrative issue a clear owner, a service
+            clock, and one shared record that students and staff can both trust.
+          </p>
+
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <CtaLink to={primaryHref} icon={<ArrowUpRight className="h-4 w-4" aria-hidden />}>
+              {primaryLabel}
+            </CtaLink>
+            <CtaLink
+              href="#how-it-works"
+              variant="secondary"
+              icon={<ArrowRight className="h-4 w-4" aria-hidden />}
+            >
+              See how it works
+            </CtaLink>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
+              Verified accounts
+            </span>
+            <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" aria-hidden />
+            <span>Free for students</span>
+            <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" aria-hidden />
+            <span>8-hour first response</span>
+          </div>
         </div>
 
-        <div className="mx-auto grid max-w-7xl gap-16 px-5 pb-20 pt-14 sm:px-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:pb-28 lg:pt-20">
-          <div className="relative">
-            <h1 className="text-[2.9rem] font-semibold leading-[0.98] tracking-[-0.04em] text-slate-900 sm:text-6xl lg:text-[4.4rem]">
-              Report it once.
-              <span className="mt-1 block text-brand-600 dark:text-brand-300">
-                See it through.
-              </span>
-            </h1>
+        <div className="relative mx-auto mt-14 max-w-[1180px] px-4 sm:px-8 lg:mt-20">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-10 -top-8 bottom-10 -z-10 rounded-[2.5rem] bg-gradient-to-b from-brand-200/40 via-white/20 to-transparent blur-2xl dark:from-brand-900/40 dark:via-slate-950 dark:to-transparent"
+          />
+          <HeroWorkspace />
+        </div>
 
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-              Campus Resolve is the single place to raise an academic or administrative issue, and
-              the clearest way to watch a department own it until it is closed. No lost emails. No
-              mystery queues. Just a visible path to a resolution.
+        <div className="relative border-y border-slate-900/5 bg-white/70 backdrop-blur dark:border-white/5 dark:bg-slate-900/50">
+          <div className="mx-auto flex max-w-[1140px] flex-col gap-4 px-5 py-7 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Used by the offices students deal with most
             </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link to={primaryHref}>
-                <Button size="lg" icon={<ArrowUpRight className="h-4 w-4" />}>
-                  {primaryLabel}
-                </Button>
-              </Link>
-              <a href="#how-it-works">
-                <Button size="lg" variant="secondary" icon={<ArrowRight className="h-4 w-4" />}>
-                  See how it works
-                </Button>
-              </a>
-            </div>
-
-            <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
-              <span className="inline-flex items-center gap-1.5">
-                <CheckCircle2
-                  className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
-                  aria-hidden
-                />
-                Verified student accounts
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <CheckCircle2
-                  className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
-                  aria-hidden
-                />
-                Free for students
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <CheckCircle2
-                  className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
-                  aria-hidden
-                />
-                8-hour first-response target
-              </span>
-            </div>
-          </div>
-
-          <ReportPreview />
-        </div>
-
-        <div className="border-y border-slate-200/70 bg-white/70 backdrop-blur">
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-8 px-5 py-9 sm:px-8 lg:grid-cols-4">
-            {TRUST_STATS.map((stat, index) => (
-              <div
-                key={stat.label}
-                className={
-                  index === 0
-                    ? ''
-                    : 'border-l-2 border-brand-200 pl-4 dark:border-brand-800 lg:pl-6'
-                }
-              >
-                <p className="text-3xl font-semibold tracking-[-0.02em] text-slate-900 sm:text-4xl">
-                  {stat.value}
-                </p>
-                <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Solutions                                                          */}
-      {/* ------------------------------------------------------------------ */}
-      <section id="solutions" className="scroll-mt-24">
-        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-28">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-5xl">
-              Every issue gets an owner,
-              <span className="text-brand-600 dark:text-brand-300">
-                {' '}
-                and a paper trail.
-              </span>
-            </h2>
-            <p className="mt-5 text-base leading-relaxed text-slate-600">
-              Most campus complaints do not fail because nobody cares. They fail because ownership,
-              time and context live in different places. Campus Resolve puts all three in one
-              record.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {SOLUTIONS.map((solution) => (
-              <article
-                key={solution.title}
-                className="group relative flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-7 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-200 hover:shadow-lift"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`flex h-11 w-11 items-center justify-center rounded-2xl ${solution.accent}`}
-                  >
-                    <solution.icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <span className="text-2xl font-semibold text-slate-200 transition-colors group-hover:text-brand-200 dark:text-slate-700">
-                    {solution.index}
-                  </span>
-                </div>
-                <h3 className="mt-6 text-lg font-semibold tracking-tight text-slate-900">
-                  {solution.title}
-                </h3>
-                <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-600">
-                  {solution.description}
-                </p>
-                <a
-                  href="#dashboard"
-                  className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-300"
+            <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              {DEPARTMENTS.map((department) => (
+                <li
+                  key={department}
+                  className="text-sm font-semibold tracking-[-0.01em] text-slate-700 dark:text-slate-300"
                 >
-                  See it in the dashboard
-                  <ArrowRight
-                    className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                    aria-hidden
-                  />
-                </a>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Operations preview                                                 */}
-      {/* ------------------------------------------------------------------ */}
-      <section
-        id="dashboard"
-        className="scroll-mt-24 border-y border-slate-200/70 bg-slate-50"
-      >
-        <div className="mx-auto grid max-w-7xl gap-14 px-5 py-20 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-28">
-          <div>
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-5xl">
-              See the whole campus.
-              <span className="text-brand-600 dark:text-brand-300">
-                {' '}
-                Spot the delay before it becomes a complaint.
-              </span>
-            </h2>
-            <p className="mt-5 text-base leading-relaxed text-slate-600">
-              Administrators and department heads get the same source of truth: what is open, what
-              is late, who owns it and how students feel about the outcome.
-            </p>
-
-            <ul className="mt-8 space-y-4">
-              {[
-                'Live volume, status mix and priority across every department.',
-                'First-response and resolution breach counts, not just averages.',
-                'Department workload and satisfaction in a single view.',
-              ].map((item) => (
-                <li key={item} className="flex gap-3 text-sm leading-relaxed text-slate-700">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300">
-                    <Check className="h-3 w-3" aria-hidden />
-                  </span>
-                  {item}
+                  {department}
                 </li>
               ))}
             </ul>
-
-            <Link to={target} className="mt-8 inline-flex">
-              <Button variant="secondary" icon={<ArrowRight className="h-4 w-4" />}>
-                {auth.isAuthenticated ? 'Open the operations view' : 'Sign in to explore'}
-              </Button>
-            </Link>
-          </div>
-
-          <OperationsPreview />
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* How it works                                                       */}
-      {/* ------------------------------------------------------------------ */}
-      <section id="how-it-works" className="scroll-mt-24">
-        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-5xl">
-              From report to resolution in
-              <span className="text-brand-600 dark:text-brand-300">
-                {' '}
-                four clear steps.
-              </span>
-            </h2>
-            <p className="mt-5 text-base leading-relaxed text-slate-600">
-              No training required. The process is the same for a missing result, a fee query or a
-              portal problem.
-            </p>
-          </div>
-
-          <div className="relative mt-14">
-            <div
-              aria-hidden
-              className="absolute left-[12%] right-[12%] top-[3.25rem] hidden h-px bg-gradient-to-r from-transparent via-brand-200 to-transparent dark:via-brand-800 lg:block"
-            />
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {STEPS.map((step, index) => (
-                <article
-                  key={step.title}
-                  className="relative rounded-3xl border border-slate-200 bg-white p-6 shadow-soft"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-brand-600">
-                      <step.icon className="h-5 w-5" aria-hidden />
-                    </span>
-                    <span className="text-3xl font-semibold text-brand-200 dark:text-brand-800">
-                      0{index + 1}
-                    </span>
-                  </div>
-                  <h3 className="mt-5 text-base font-semibold tracking-tight text-slate-900">
-                    {step.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.description}</p>
-                </article>
-              ))}
-            </div>
           </div>
         </div>
       </section>
 
+      <FoldedProofSection />
+
       {/* ------------------------------------------------------------------ */}
-      {/* Audiences                                                          */}
+      {/* Role showcase                                                      */}
       {/* ------------------------------------------------------------------ */}
       <section
-        id="audiences"
-        className="scroll-mt-24 border-y border-slate-200/70 bg-slate-50"
+        id="roles"
+        className="scroll-mt-24 border-y border-slate-900/5 bg-white dark:border-white/5 dark:bg-slate-900/40"
       >
-        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-28">
+        <div className="mx-auto max-w-[1140px] px-5 py-24 sm:px-8 lg:py-32">
           <div className="max-w-3xl">
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-5xl">
+            <h2 className="text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-950 sm:text-[3rem] dark:text-white">
               One system,
-              <span className="text-brand-600 dark:text-brand-300">
-                {' '}
-                four points of view.
-              </span>
+              <span className="text-slate-500 dark:text-slate-400"> four points of view.</span>
             </h2>
-            <p className="mt-5 text-base leading-relaxed text-slate-600">
+            <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
               Students need clarity. Officers need a queue. Heads need the truth. Administrators
-              need control. Everyone gets the view that makes their next step obvious.
+              need control. Everyone gets the view that makes the next step obvious.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-2">
-            {AUDIENCES.map((audience) => (
-              <article
-                key={audience.title}
-                className={
-                  audience.featured
-                    ? 'relative overflow-hidden rounded-3xl bg-brand-600 p-8 text-white shadow-lift dark:bg-brand-700'
-                    : 'relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 shadow-soft'
-                }
-              >
-                {audience.featured ? (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl"
-                  />
-                ) : null}
-                <span
-                  className={
-                    audience.featured
-                      ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-white'
-                      : 'flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300'
-                  }
-                >
-                  <audience.icon className="h-5 w-5" aria-hidden />
-                </span>
-                <h3
-                  className={
-                    audience.featured
-                      ? 'mt-6 text-xl font-semibold tracking-tight text-white'
-                      : 'mt-6 text-xl font-semibold tracking-tight text-slate-900'
-                  }
-                >
-                  {audience.title}
+          <div className="mt-14 grid gap-6 lg:grid-cols-[15rem_1fr]">
+            <div
+              role="tablist"
+              aria-label="Views by role"
+              aria-orientation="vertical"
+              className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
+            >
+              {ROLES.map((entry, index) => {
+                const selected = index === roleIndex;
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    role="tab"
+                    id={`role-tab-${entry.id}`}
+                    aria-selected={selected}
+                    aria-controls={`role-panel-${entry.id}`}
+                    onClick={() => setRoleIndex(index)}
+                    className={
+                      selected
+                        ? 'flex shrink-0 items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-left text-sm font-semibold text-brand-800 dark:border-brand-500/30 dark:bg-brand-950/50 dark:text-brand-200'
+                        : 'flex shrink-0 items-center gap-3 rounded-xl border border-transparent px-4 py-3 text-left text-sm font-medium text-slate-600 transition-colors hover:border-slate-200 hover:bg-slate-50 dark:text-slate-300 dark:hover:border-slate-800 dark:hover:bg-slate-900'
+                    }
+                  >
+                    <entry.icon className="h-4 w-4 shrink-0" aria-hidden />
+                    {entry.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              role="tabpanel"
+              id={`role-panel-${role.id}`}
+              aria-labelledby={`role-tab-${role.id}`}
+              className="grid gap-8 rounded-2xl border border-slate-900/10 bg-[#fafafa] p-7 sm:p-9 lg:grid-cols-[1fr_1.05fr] lg:items-center dark:border-white/10 dark:bg-slate-950/60"
+            >
+              <div>
+                <h3 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-3xl dark:text-white">
+                  {role.title}
                 </h3>
-                <p
-                  className={
-                    audience.featured
-                      ? 'mt-3 text-sm leading-relaxed text-brand-100'
-                      : 'mt-3 text-sm leading-relaxed text-slate-600'
-                  }
-                >
-                  {audience.description}
+                <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-300">
+                  {role.description}
                 </p>
-                <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
-                  {audience.points.map((point) => (
+                <ul className="mt-6 space-y-3">
+                  {role.points.map((point) => (
                     <li
                       key={point}
-                      className={
-                        audience.featured
-                          ? 'flex items-center gap-2 text-sm text-brand-50'
-                          : 'flex items-center gap-2 text-sm text-slate-700'
-                      }
+                      className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-200"
                     >
-                      <Check
-                        className={
-                          audience.featured
-                            ? 'h-4 w-4 shrink-0 text-white'
-                            : 'h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300'
-                        }
-                        aria-hidden
-                      />
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300">
+                        <Check className="h-3 w-3" aria-hidden />
+                      </span>
                       {point}
                     </li>
                   ))}
                 </ul>
-              </article>
-            ))}
+              </div>
+
+              <RolePreview roleId={role.id} />
+            </div>
           </div>
         </div>
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Testimonials                                                       */}
+      {/* Service band                                                       */}
       {/* ------------------------------------------------------------------ */}
-      <section>
-        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-5xl">
-              Trusted to protect
-              <span className="text-brand-600 dark:text-brand-300">
-                {' '}
-                what matters.
-              </span>
+      <section id="service" className="scroll-mt-24 bg-[#0a1220] text-white">
+        <div className="mx-auto max-w-[1140px] px-5 py-24 sm:px-8 lg:py-28">
+          <div className="grid gap-14 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div>
+              <h2 className="max-w-xl text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.04em] text-white sm:text-[3rem]">
+                Service you can measure,{' '}
+                <span className="block text-slate-400">not guess at.</span>
+              </h2>
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-400">
+                Targets, breaches and closures are measured the same way in every department, so a
+                status update is never a matter of opinion.
+              </p>
+              <div className="mt-9">
+                <CtaLink
+                  href="#how-it-works"
+                  variant="dark-outline"
+                  icon={<ArrowRight className="h-4 w-4" aria-hidden />}
+                >
+                  See the process
+                </CtaLink>
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 ring-1 ring-inset ring-white/10">
+              {[
+                { value: '8h', label: 'First response target' },
+                { value: '72h', label: 'Resolution target' },
+                { value: '100%', label: 'Actions audited' },
+                { value: '6', label: 'Departments connected' },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-[#0a1220] px-6 py-8 sm:px-8">
+                  <dt className="text-sm text-slate-400">{stat.label}</dt>
+                  <dd className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-white sm:text-5xl">
+                    {stat.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Process                                                            */}
+      {/* ------------------------------------------------------------------ */}
+      <section id="how-it-works" className="scroll-mt-24">
+        <div className="mx-auto max-w-[1140px] px-5 py-24 sm:px-8 lg:py-32">
+          <div className="max-w-3xl">
+            <h2 className="text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-950 sm:text-[3rem] dark:text-white">
+              From report to resolution,
+              <span className="text-slate-500 dark:text-slate-400"> in four clear steps.</span>
             </h2>
-            <p className="mt-5 text-base leading-relaxed text-slate-600">
+          </div>
+
+          <ol className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-slate-900/10 bg-slate-200/70 sm:grid-cols-2 lg:grid-cols-4 dark:border-white/10 dark:bg-slate-800">
+            {[
+              {
+                title: 'Sign in with your student email',
+                description:
+                  'Verified accounts keep the channel trusted. No forms lost in an inbox, no anonymous reports to chase.',
+                icon: GraduationCap,
+              },
+              {
+                title: 'Describe the issue once',
+                description:
+                  'Pick a category, add the details that matter and attach a receipt or screenshot if you have one.',
+                icon: FileText,
+              },
+              {
+                title: 'Follow the clock',
+                description:
+                  'Watch the first response and resolution targets, then read every update in the same thread.',
+                icon: Clock3,
+              },
+              {
+                title: 'Confirm the outcome',
+                description:
+                  'Close the loop with feedback, or reopen the report if the problem returns. The record stays complete.',
+                icon: CheckCircle2,
+              },
+            ].map((step, index) => (
+              <li key={step.title} className="bg-white p-7 dark:bg-slate-900">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-brand-500">
+                    <step.icon className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+                    0{index + 1}
+                  </span>
+                </div>
+                <h3 className="mt-6 text-base font-semibold tracking-[-0.01em] text-slate-950 dark:text-white">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  {step.description}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Testimonial carousel                                               */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="border-y border-slate-900/5 bg-white dark:border-white/5 dark:bg-slate-900/40">
+        <div className="mx-auto grid max-w-[1140px] gap-10 px-5 py-24 sm:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:py-28">
+          <div>
+            <h2 className="text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-950 sm:text-[2.6rem] dark:text-white">
+              The record{' '}
+              <span className="block text-slate-500 dark:text-slate-400">changes the conversation.</span>
+            </h2>
+            <p className="mt-6 max-w-sm text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               A resolution is more than a status change. It is the moment a student stops worrying
               and a department stops chasing.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {TESTIMONIALS.map((testimonial) => (
-              <figure
-                key={testimonial.name}
-                className="relative flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-7 shadow-soft"
-              >
-                <Quote
-                  className="h-8 w-8 text-brand-100 dark:text-brand-900"
-                  aria-hidden
-                />
-                <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-slate-700">
-                  “{testimonial.quote}”
-                </blockquote>
-                <figcaption className="mt-6 flex items-center gap-3 border-t border-slate-100 pt-5 dark:border-slate-800">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700 dark:bg-brand-950/60 dark:text-brand-300">
+          <div aria-live="polite">
+            <figure className="rounded-2xl border border-slate-900/10 bg-[#fafafa] p-8 sm:p-10 dark:border-white/10 dark:bg-slate-950/60">
+              <div className="flex gap-0.5" aria-label="Five out of five">
+                {[0, 1, 2, 3, 4].map((star) => (
+                  <Star
+                    key={star}
+                    className="h-4 w-4 fill-amber-400 text-amber-400"
+                    aria-hidden
+                  />
+                ))}
+              </div>
+              <blockquote className="mt-6 text-xl leading-snug tracking-[-0.02em] text-slate-900 sm:text-2xl dark:text-slate-100">
+                &ldquo;{testimonial.quote}&rdquo;
+              </blockquote>
+              <figcaption className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-800 dark:bg-brand-900/60 dark:text-brand-200">
                     {testimonial.name
                       .split(' ')
                       .map((part) => part[0])
                       .join('')}
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{testimonial.name}</p>
-                    <p className="text-xs text-slate-500">{testimonial.role}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      {testimonial.name}
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{testimonial.role}</p>
                   </div>
-                  <span className="ml-auto flex gap-0.5" aria-label="Five out of five">
-                    {[0, 1, 2, 3, 4].map((star) => (
-                      <Star
-                        key={star}
-                        className="h-3.5 w-3.5 fill-amber-400 text-amber-400"
-                        aria-hidden
-                      />
-                    ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => moveQuote(-1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    aria-label="Previous testimonial"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden />
+                  </button>
+                  <span className="min-w-[3.5rem] text-center text-sm tabular-nums text-slate-500 dark:text-slate-400">
+                    {quoteIndex + 1} / {TESTIMONIALS.length}
                   </span>
-                </figcaption>
-              </figure>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => moveQuote(1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    aria-label="Next testimonial"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              </figcaption>
+            </figure>
           </div>
-          <p className="mt-6 text-center text-xs text-slate-400">
-            Composite feedback from pilot interviews and resolved-report surveys.
-          </p>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Capabilities strip                                                 */}
+      {/* ------------------------------------------------------------------ */}
+      <section>
+        <div className="mx-auto max-w-[1140px] px-5 py-16 sm:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="max-w-md text-lg font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">
+              Built around the way campus work already happens.
+            </h2>
+            <ul className="flex flex-wrap gap-2.5">
+              {CAPABILITIES.map((capability) => (
+                <li
+                  key={capability.label}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-900/10 bg-white px-4 py-2 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <capability.icon className="h-4 w-4 text-brand-600 dark:text-brand-300" aria-hidden />
+                  {capability.label}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
       {/* ------------------------------------------------------------------ */}
       {/* FAQ                                                                */}
       {/* ------------------------------------------------------------------ */}
-      <section id="faq" className="scroll-mt-24 border-y border-slate-200/70 bg-slate-50">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:py-28">
+      <section
+        id="faq"
+        className="scroll-mt-24 border-y border-slate-900/5 bg-white dark:border-white/5 dark:bg-slate-900/40"
+      >
+        <div className="mx-auto grid max-w-[1140px] gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:py-32">
           <div>
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-900 sm:text-4xl">
-              Before you file
-              <span className="text-brand-600 dark:text-brand-300">
-                {' '}
-                your first report.
-              </span>
+            <h2 className="text-[2.1rem] font-semibold leading-[1.08] tracking-[-0.04em] text-slate-950 sm:text-[2.6rem] dark:text-white">
+              Before you file{' '}
+              <span className="block text-slate-500 dark:text-slate-400">your first report.</span>
             </h2>
-            <p className="mt-5 text-sm leading-relaxed text-slate-600">
+            <p className="mt-6 max-w-sm text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               Privacy, timelines and what happens after you submit. The full help centre has the
               rest.
             </p>
-            <Link to="/help" className="mt-6 inline-flex">
-              <Button variant="secondary" icon={<LifeBuoy className="h-4 w-4" />}>
+            <div className="mt-7">
+              <CtaLink
+                to="/help"
+                variant="secondary"
+                icon={<ArrowRight className="h-4 w-4" aria-hidden />}
+              >
                 Visit the help centre
-              </Button>
-            </Link>
+              </CtaLink>
+            </div>
           </div>
 
           <div className="space-y-3">
             {FAQS.slice(0, 5).map((entry) => (
               <details
                 key={entry.question}
-                className="group rounded-2xl border border-slate-200 bg-white px-5 transition-colors open:border-brand-200"
+                className="group rounded-xl border border-slate-900/10 bg-[#fafafa] px-5 transition-colors open:border-brand-300 dark:border-white/10 dark:bg-slate-950/50 dark:open:border-brand-500/40"
               >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-slate-900 [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-slate-950 [&::-webkit-details-marker]:hidden dark:text-white">
                   {entry.question}
                   <ChevronDown
-                    className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180"
+                    className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180 dark:text-slate-400"
                     aria-hidden
                   />
                 </summary>
-                <p className="pb-5 text-sm leading-relaxed text-slate-600">{entry.answer}</p>
+                <p className="pb-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  {entry.answer}
+                </p>
               </details>
             ))}
           </div>
@@ -637,55 +641,28 @@ export function HomePage() {
       {/* ------------------------------------------------------------------ */}
       {/* Final call to action                                               */}
       {/* ------------------------------------------------------------------ */}
-      <section className="mx-auto max-w-7xl px-5 pb-20 pt-14 sm:px-8 sm:pb-24">
-        <div className="relative isolate overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-brand-600 via-brand-600 to-brand-800 px-6 py-14 text-center shadow-lift sm:px-14 lg:py-20">
+      <section className="mx-auto max-w-[1140px] px-5 py-24 sm:px-8 lg:py-28">
+        <div className="relative isolate overflow-hidden rounded-[1.75rem] bg-[linear-gradient(125deg,#1f3a6e_0%,#2a56a5_40%,#2f63c0_68%,#1f6f78_100%)] px-6 py-16 text-center shadow-lift sm:px-14 lg:py-20">
           <div
             aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(45rem_20rem_at_50%_0%,rgba(255,255,255,0.2),transparent_70%)]"
           />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -bottom-32 -right-20 h-80 w-80 rounded-full bg-sky-300/20 blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_55%)]"
-          />
-          <div className="relative">
-            <h2 className="mx-auto max-w-3xl text-3xl font-semibold tracking-[-0.03em] text-white sm:text-5xl">
-              Nothing important should get
-              <span >
-                {' '}
-                lost in the system.
-              </span>
+          <div className="relative mx-auto max-w-2xl">
+            <h2 className="text-[2rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-[2.75rem]">
+              Nothing important should get lost in the system.
             </h2>
-            <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-brand-100 sm:text-base">
+            <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-brand-50 sm:text-base">
               Sign in with your student email, describe the issue once, and follow every update in
               one place. Departments get the same clear record.
             </p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link to={primaryHref}>
-                <Button
-                  size="lg"
-                  className="bg-white text-brand-700 hover:bg-brand-50"
-                  icon={<ArrowUpRight className="h-4 w-4" />}
-                >
-                  {primaryLabel}
-                </Button>
-              </Link>
-              <a href="#solutions">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="border-white/30 bg-transparent text-white hover:bg-white/10"
-                >
-                  Explore the platform
-                </Button>
-              </a>
+            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+              <CtaLink to={primaryHref} variant="invert" icon={<ArrowUpRight className="h-4 w-4" aria-hidden />}>
+                {primaryLabel}
+              </CtaLink>
+              <CtaLink href="#product" variant="outline">
+                Explore the platform
+              </CtaLink>
             </div>
-            <p className="mt-6 text-xs text-brand-200">
-              Verified accounts · Free for students · Built for GCTU
-            </p>
           </div>
         </div>
       </section>
@@ -697,236 +674,454 @@ export function HomePage() {
 /* Homepage previews                                                          */
 /* -------------------------------------------------------------------------- */
 
-function ReportPreview() {
-  const steps = [
-    { label: 'Submitted', time: '09:12', state: 'done' },
-    { label: 'Acknowledged by Academic Affairs', time: '11:26', state: 'done' },
-    { label: 'Reviewing your mark sheet', time: 'Today', state: 'active' },
-    { label: 'Resolution and confirmation', time: 'Expected Thu', state: 'todo' },
-  ] as const;
-
+function HeroWorkspace() {
   return (
-    <div aria-hidden="true" className="relative mx-auto w-full max-w-[36rem] lg:max-w-none">
-      <div className="absolute -inset-5 -z-10 rounded-[3rem] bg-gradient-to-br from-brand-200/70 via-sky-100/60 to-white blur-2xl dark:from-brand-900/50 dark:via-slate-900 dark:to-slate-900" />
-
-      <div className="relative rounded-[1.9rem] border border-slate-200/80 bg-white p-2 shadow-[0_45px_100px_-45px_rgba(33,33,43,0.45)] dark:border-slate-700">
-        <div className="rounded-[1.5rem] bg-slate-50/90 p-5 dark:bg-slate-950/50">
-          <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-rose-300" />
-            <span className="h-2 w-2 rounded-full bg-amber-300" />
-            <span className="h-2 w-2 rounded-full bg-emerald-300" />
-            <span className="ml-2 truncate rounded-md bg-white px-2 py-1 text-[10px] text-slate-400 ring-1 ring-slate-200">
-              campusresolve.app/reports/CR-2026-001042
-            </span>
+    <div aria-hidden="true" className="relative">
+      <div className="absolute -left-6 top-36 z-20 hidden w-56 rounded-xl border border-slate-900/10 bg-white p-3.5 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.5)] xl:block dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300">
+            <CheckCircle2 className="h-4 w-4" aria-hidden />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-slate-950 dark:text-white">First response</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">2h 14m, within target</p>
           </div>
+        </div>
+      </div>
 
-          <div className="mt-4 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                CR-2026-001042
-              </p>
-              <h3 className="mt-1 text-sm font-semibold leading-snug text-slate-900">
-                Missing CSC 305 examination result
-              </h3>
-            </div>
-            <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-900">
-              In progress
-            </span>
+      <div className="absolute -right-6 bottom-28 z-20 hidden w-60 rounded-xl border border-slate-900/10 bg-white p-3.5 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.5)] xl:block dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-300">
+            <Zap className="h-4 w-4" aria-hidden />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-slate-950 dark:text-white">
+              CR-2026-001042 resolved
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Student confirmed the outcome</p>
           </div>
+        </div>
+      </div>
 
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {[
-              { icon: Building2, label: 'Academic Affairs' },
-              { icon: Layers3, label: 'High priority' },
-              { icon: Clock3, label: 'Responded in 2h 14m' },
-            ].map((chip) => (
-              <span
-                key={chip.label}
-                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200"
-              >
-                <chip.icon className="h-3 w-3 text-brand-500" />
-                {chip.label}
+      <div className="overflow-hidden rounded-t-2xl border border-slate-900/10 bg-white shadow-[0_50px_120px_-60px_rgba(15,23,42,0.6)] dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50/90 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
+          <div className="flex gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-rose-300 dark:bg-rose-500/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-300 dark:bg-amber-500/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-300 dark:bg-emerald-500/70" />
+          </div>
+          <div className="mx-auto flex w-full max-w-md items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <span className="truncate">app.famoustech.edu.gh/operations</span>
+          </div>
+          <div className="hidden w-12 sm:block" />
+        </div>
+
+        <div className="grid lg:grid-cols-[13.5rem_1fr]">
+          <aside className="hidden border-r border-slate-200 bg-slate-50/60 p-4 lg:block dark:border-slate-800 dark:bg-slate-950/40">
+            <div className="flex items-center gap-2 px-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-white">
+                <GraduationCap className="h-3.5 w-3.5" aria-hidden />
               </span>
-            ))}
-          </div>
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                Campus Resolve
+              </span>
+            </div>
 
-          <div className="mt-5 space-y-0 rounded-2xl border border-slate-200 bg-white p-4">
-            {steps.map((step, index) => (
-              <div key={step.label} className="flex gap-3">
-                <div className="flex flex-col items-center">
-                  <span
-                    className={
-                      step.state === 'done'
-                        ? 'flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white'
-                        : step.state === 'active'
-                          ? 'flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white ring-4 ring-brand-100 dark:ring-brand-950'
-                          : 'flex h-5 w-5 items-center justify-center rounded-full border-2 border-slate-200 bg-white'
-                    }
+            <nav className="mt-6 space-y-1">
+              {[
+                { icon: LayoutDashboard, label: 'Operations', active: true },
+                { icon: Inbox, label: 'Work queue', active: false },
+                { icon: Building2, label: 'Departments', active: false },
+                { icon: BarChart3, label: 'Analytics', active: false },
+                { icon: FileText, label: 'Audit log', active: false },
+              ].map((item) => (
+                <span
+                  key={item.label}
+                  className={
+                    item.active
+                      ? 'flex items-center gap-2.5 rounded-lg bg-brand-50 px-2.5 py-2 text-xs font-semibold text-brand-800 dark:bg-brand-950/60 dark:text-brand-200'
+                      : 'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-400'
+                  }
+                >
+                  <item.icon className="h-4 w-4" aria-hidden />
+                  {item.label}
+                </span>
+              ))}
+            </nav>
+
+            <div className="mt-8 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Service health</p>
+              <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                All systems normal
+              </div>
+            </div>
+          </aside>
+
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold tracking-[-0.02em] text-slate-950 dark:text-white">
+                  Operations
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Institution-wide service view
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="hidden items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 sm:inline-flex dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                  <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                  Last 14 days
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                  <Bell className="h-3.5 w-3.5" aria-hidden />
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">
+                  AO
+                </span>
+              </div>
+            </div>
+
+            <dl className="mt-5 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+              {[
+                {
+                  label: 'Open reports',
+                  value: '20',
+                  hint: '+4 this week',
+                  tone: 'text-slate-950 dark:text-white',
+                },
+                {
+                  label: 'Overdue',
+                  value: '16',
+                  hint: 'Needs attention',
+                  tone: 'text-rose-600 dark:text-rose-400',
+                },
+                {
+                  label: 'Resolved',
+                  value: '67%',
+                  hint: '41 closed',
+                  tone: 'text-emerald-600 dark:text-emerald-400',
+                },
+                {
+                  label: 'First response',
+                  value: '2h 14m',
+                  hint: 'Within 8h target',
+                  tone: 'text-slate-950 dark:text-white',
+                },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-950/50"
+                >
+                  <dt className="text-xs text-slate-500 dark:text-slate-400">{stat.label}</dt>
+                  <dd
+                    className={`mt-1 text-xl font-semibold tabular-nums tracking-[-0.02em] ${stat.tone}`}
                   >
-                    {step.state === 'done' ? (
-                      <Check className="h-3 w-3" />
-                    ) : step.state === 'active' ? (
-                      <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                    ) : null}
-                  </span>
-                  {index < steps.length - 1 ? (
-                    <span
-                      className={
-                        step.state === 'done'
-                          ? 'my-1 h-6 w-px bg-emerald-200'
-                          : 'my-1 h-6 w-px bg-slate-200'
-                      }
-                    />
-                  ) : null}
+                    {stat.value}
+                  </dd>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{stat.hint}</p>
                 </div>
-                <div className="flex flex-1 items-start justify-between gap-3 pb-3">
-                  <p
-                    className={
-                      step.state === 'todo'
-                        ? 'text-xs text-slate-400'
-                        : 'text-xs font-medium text-slate-700'
-                    }
-                  >
-                    {step.label}
-                  </p>
-                  <p className="shrink-0 text-[10px] text-slate-400">{step.time}</p>
+              ))}
+            </dl>
+
+            <div className="mt-3 grid gap-3 xl:grid-cols-[1.65fr_1fr]">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Report volume
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      Created and resolved
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-0.5 rounded-md border border-slate-200 p-0.5 dark:border-slate-800">
+                    {['24h', '7d', '14d'].map((range) => (
+                      <span
+                        key={range}
+                        className={
+                          range === '14d'
+                            ? 'rounded bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white'
+                            : 'px-2 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400'
+                        }
+                      >
+                        {range}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <svg
+                  viewBox="0 0 520 132"
+                  preserveAspectRatio="none"
+                  className="mt-4 h-32 w-full"
+                >
+                  <defs>
+                    <linearGradient id="heroCreatedGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#407bd9" stopOpacity="0.34" />
+                      <stop offset="100%" stopColor="#407bd9" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  {[24, 62, 100].map((y) => (
+                    <line
+                      key={y}
+                      x1="0"
+                      y1={y}
+                      x2="520"
+                      y2={y}
+                      stroke="currentColor"
+                      className="text-slate-200 dark:text-slate-800"
+                      strokeDasharray="4 5"
+                      strokeWidth="1"
+                    />
+                  ))}
+                  <path
+                    d="M0 98 C30 92 45 76 75 80 C105 84 120 60 150 64 C180 68 195 48 225 52 C255 56 270 38 300 44 C330 50 345 30 375 34 C405 38 420 22 450 27 C480 32 500 18 520 22 L520 132 L0 132 Z"
+                    fill="url(#heroCreatedGradient)"
+                  />
+                  <path
+                    d="M0 98 C30 92 45 76 75 80 C105 84 120 60 150 64 C180 68 195 48 225 52 C255 56 270 38 300 44 C330 50 345 30 375 34 C405 38 420 22 450 27 C480 32 500 18 520 22"
+                    fill="none"
+                    stroke="#407bd9"
+                    strokeWidth="2.25"
+                  />
+                  <path
+                    d="M0 112 C30 108 45 100 75 102 C105 104 120 88 150 91 C180 94 195 78 225 81 C255 84 270 68 300 72 C330 76 345 58 375 62 C405 66 420 48 450 52 C480 56 500 42 520 45"
+                    fill="none"
+                    stroke="#14b8a6"
+                    strokeWidth="2"
+                    strokeDasharray="5 5"
+                  />
+                </svg>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>28 Oct</span>
+                  <span>3 Nov</span>
+                  <span>10 Nov</span>
                 </div>
               </div>
-            ))}
-          </div>
 
-          <div className="mt-4 rounded-2xl bg-slate-900 px-4 py-3 text-white dark:bg-brand-700">
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="font-medium text-slate-300">Resolution target</span>
-              <span className="font-semibold">21h remaining</span>
+              <div className="hidden rounded-xl border border-slate-200 bg-white p-4 xl:block dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    Needs attention
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-300">
+                    View queue
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {[
+                    {
+                      ref: 'CR-2026-001052',
+                      subject: 'Results tab never loads',
+                      department: 'ICT Support',
+                      status: 'Escalated',
+                      dot: 'bg-rose-500',
+                    },
+                    {
+                      ref: 'CR-2026-001040',
+                      subject: 'Missing ACC 210 result',
+                      department: 'Academic Affairs',
+                      status: 'Due today',
+                      dot: 'bg-amber-500',
+                    },
+                    {
+                      ref: 'CR-2026-001037',
+                      subject: 'Surname on admission letter',
+                      department: 'Registration',
+                      status: 'New',
+                      dot: 'bg-brand-500',
+                    },
+                  ].map((item, index) => (
+                    <div
+                      key={item.ref}
+                      className={
+                        index === 0
+                          ? 'flex items-start gap-2.5'
+                          : 'flex items-start gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800'
+                      }
+                    >
+                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${item.dot}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+                          {item.ref}
+                        </p>
+                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {item.subject}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {item.department}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full w-[68%] rounded-full bg-gradient-to-r from-brand-300 to-emerald-400" />
-            </div>
-            <p className="mt-2 text-[10px] text-slate-400">
-              72-hour service target · You will be notified at every step
-            </p>
           </div>
         </div>
       </div>
 
-      <div className="absolute -right-3 top-24 hidden w-44 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl sm:block lg:-right-8">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-            <CheckCircle2 className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-[10px] font-semibold text-slate-900">First response</p>
-            <p className="text-[10px] text-slate-500">2h 14m · within target</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute -bottom-6 -left-3 hidden w-52 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl sm:block lg:-left-10">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-            <Zap className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-[10px] font-semibold text-slate-900">Auto-routed to Academic Affairs</p>
-            <p className="text-[10px] text-slate-500">Matched by category in 0.4s</p>
-          </div>
-        </div>
-      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#fafafa] via-[#fafafa]/80 to-transparent dark:from-slate-950 dark:via-slate-950/80" />
     </div>
   );
 }
 
-function OperationsPreview() {
-  const bars = [34, 52, 41, 66, 57, 78, 63, 84, 71, 92, 76, 88, 68, 94];
-  const departments = [
-    { name: 'Academic Affairs', open: 12, width: '82%' },
-    { name: 'ICT Support', open: 9, width: '64%' },
-    { name: 'Student Finance', open: 6, width: '45%' },
-    { name: 'Registration', open: 4, width: '30%' },
-  ];
-
-  return (
-    <div aria-hidden="true" className="relative">
-      <div className="absolute -inset-4 -z-10 rounded-[2.5rem] bg-gradient-to-tr from-brand-100 via-white to-amber-50 blur-2xl dark:from-brand-900/40 dark:via-slate-900 dark:to-slate-900" />
-
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_35px_90px_-45px_rgba(33,33,43,0.4)]">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Operations overview</p>
-            <p className="text-[10px] text-slate-400">Institution-wide · last 14 days</p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Live
-          </span>
+function RolePreview({ roleId }: { roleId: string }) {
+  if (roleId === 'officers') {
+    return (
+      <div aria-hidden="true" className="rounded-xl border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">My queue</p>
+          <span className="text-xs text-slate-500 dark:text-slate-400">8 open</span>
         </div>
-
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <ul className="mt-3 space-y-2">
           {[
-            { label: 'Open', value: '18', tone: 'text-slate-900' },
-            { label: 'Overdue', value: '5', tone: 'text-rose-600' },
-            { label: 'Resolved', value: '82%', tone: 'text-emerald-600' },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-2xl border border-slate-100 bg-slate-50/70 px-3 py-3 dark:border-slate-800"
+            { ref: 'CR-2026-001052', subject: 'Results tab never loads', tone: 'Escalated' },
+            { ref: 'CR-2026-001040', subject: 'Missing ACC 210 result', tone: 'Due today' },
+            { ref: 'CR-2026-001037', subject: 'Surname on admission letter', tone: 'New' },
+          ].map((item) => (
+            <li
+              key={item.ref}
+              className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950/50"
             >
-              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                {stat.label}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+                  {item.ref}
+                </span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800">
+                  {item.tone}
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
+                {item.subject}
               </p>
-              <p className={`mt-1 text-xl font-semibold tabular-nums ${stat.tone}`}>{stat.value}</p>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
+      </div>
+    );
+  }
 
-        <div className="mt-5 rounded-2xl border border-slate-100 p-4 dark:border-slate-800">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-800">Report volume</p>
-            <p className="text-[10px] text-slate-400">Created vs resolved</p>
-          </div>
-          <div className="mt-4 flex h-28 items-end gap-1.5">
-            {bars.map((height, index) => (
-              <div key={index} className="flex flex-1 flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-t-md bg-gradient-to-t from-brand-200 to-brand-500 dark:from-brand-800 dark:to-brand-500"
-                  style={{ height: `${height}%` }}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 flex justify-between text-[9px] text-slate-400">
-            <span>28 Oct</span>
-            <span>10 Nov</span>
-          </div>
+  if (roleId === 'heads') {
+    return (
+      <div aria-hidden="true" className="rounded-xl border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">Department workload</p>
+          <span className="text-xs text-slate-500 dark:text-slate-400">Open reports</span>
         </div>
-
-        <div className="mt-4 space-y-3 rounded-2xl border border-slate-100 p-4 dark:border-slate-800">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-800">Department workload</p>
-            <p className="text-[10px] text-slate-400">Open reports</p>
-          </div>
-          {departments.map((department) => (
-            <div key={department.name}>
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="font-medium text-slate-600">{department.name}</span>
-                <span className="tabular-nums text-slate-400">{department.open}</span>
+        <ul className="mt-4 space-y-3.5">
+          {[
+            { name: 'Academic Affairs', open: 12, width: '82%' },
+            { name: 'ICT Support', open: 9, width: '64%' },
+            { name: 'Student Finance', open: 6, width: '45%' },
+            { name: 'Registration', open: 4, width: '30%' },
+          ].map((department) => (
+            <li key={department.name}>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-200">{department.name}</span>
+                <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                  {department.open}
+                </span>
               </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-600"
                   style={{ width: department.width }}
                 />
               </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (roleId === 'administrators') {
+    return (
+      <div aria-hidden="true" className="rounded-xl border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">Operations overview</p>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/15 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-400/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            Live
+          </span>
+        </div>
+        <dl className="mt-4 grid grid-cols-3 gap-2">
+          {[
+            { label: 'Open', value: '20' },
+            { label: 'Overdue', value: '16' },
+            { label: 'Resolution', value: '67%' },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950/50"
+            >
+              <dt className="text-xs text-slate-500 dark:text-slate-400">{stat.label}</dt>
+              <dd className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-white">
+                {stat.value}
+              </dd>
             </div>
           ))}
-        </div>
+        </dl>
+        <ul className="mt-4 space-y-2">
+          {['Audit trail export ready', 'Role change recorded', 'Settings updated'].map((entry) => (
+            <li
+              key={entry}
+              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950/50"
+            >
+              <span className="text-slate-700 dark:text-slate-200">{entry}</span>
+              <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            </li>
+          ))}
+        </ul>
       </div>
+    );
+  }
 
-      <div className="absolute -bottom-5 right-4 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xl sm:block">
-        <p className="text-[10px] font-semibold text-slate-900">Avg. first response</p>
-        <p className="mt-0.5 text-lg font-semibold tabular-nums text-brand-600">3h 42m</p>
+  return (
+    <div aria-hidden="true" className="rounded-xl border border-slate-900/10 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-slate-900 dark:text-white">My report</p>
+        <span className="text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+          CR-2026-001042
+        </span>
       </div>
+      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            Missing CSC 305 result
+          </p>
+          <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/15 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-400/20">
+            In progress
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Academic Affairs, first response sent
+        </p>
+      </div>
+      <ul className="mt-3 space-y-2">
+        {['Report received', 'Owner assigned', 'Reply from Academic Affairs'].map((entry, index) => (
+          <li key={entry} className="flex items-center gap-2.5 text-sm">
+            <span
+              className={
+                index === 2
+                  ? 'flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white dark:bg-brand-500'
+                  : 'flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white'
+              }
+            >
+              <Check className="h-3 w-3" aria-hidden />
+            </span>
+            <span className="text-slate-700 dark:text-slate-200">{entry}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -995,27 +1190,6 @@ export function HelpPage() {
           </Link>
         </CardBody>
       </Card>
-    </div>
-  );
-}
-
-export function NotFoundPage() {
-  return (
-    <div className="mx-auto max-w-lg space-y-4 text-center">
-      <p className="text-sm font-semibold uppercase tracking-wide text-indigo-700">404</p>
-      <h1 className="text-xl font-semibold tracking-tight text-slate-900">Page not found</h1>
-      <p className="text-sm text-slate-500">
-        The page you asked for does not exist. It may have been moved, or the link may be
-        incomplete.
-      </p>
-      <div className="flex justify-center gap-2">
-        <Link to="/">
-          <Button>Go to the start page</Button>
-        </Link>
-        <Link to="/help">
-          <Button variant="secondary">Open help</Button>
-        </Link>
-      </div>
     </div>
   );
 }

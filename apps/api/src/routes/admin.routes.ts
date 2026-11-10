@@ -10,6 +10,7 @@ import {
   deleteUserSchema,
   exportQuerySchema,
   inviteUserSchema,
+  reportTrendQuerySchema,
   serviceTargetSchema,
   settingsUpdateSchema,
   updateUserRoleSchema,
@@ -41,6 +42,16 @@ adminRouter.get('/dashboard', requirePermission('analytics:global'), async (req,
   });
   res.json({ dashboard });
 });
+
+adminRouter.get(
+  '/dashboard/trend',
+  requirePermission('analytics:global'),
+  validate(reportTrendQuerySchema, 'query'),
+  async (req, res) => {
+    const result = await departmentService.getReportTrend(req.auth!, req.query as never);
+    res.json(result);
+  },
+);
 
 adminRouter.get('/users', requirePermission('user:manage'), async (req, res) => {
   const result = await adminService.listUsers(req.auth!, {

@@ -14,12 +14,15 @@ export interface AuthContext {
   email: string;
   fullName: string;
   studentId: string | null;
+  phone: string | null;
+  preferredContactMethod: string | null;
   emailVerified: boolean;
   accountStatus: 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'DEACTIVATED' | 'MUST_CHANGE_PASSWORD';
   roles: RoleName[];
   permissions: Set<PermissionKey>;
   departments: DepartmentScope[];
   lastLoginAt: Date | null;
+  createdAt: Date;
   mustChangePassword?: boolean;
 }
 

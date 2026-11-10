@@ -1,7 +1,16 @@
 import React, { forwardRef } from 'react';
 import { clsx, type ClassValue } from 'clsx';
+import { Link } from 'react-router-dom';
 import { twMerge } from 'tailwind-merge';
-import { Loader2, X, ChevronLeft, ChevronRight, Inbox, AlertTriangle } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Loader2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Inbox,
+  AlertTriangle,
+} from 'lucide-react';
 import type { TicketStatus, TicketPriority } from '@campus-resolve/shared';
 
 export function cn(...inputs: ClassValue[]): string {
@@ -167,7 +176,7 @@ export function FormField({
 export function Card({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('rounded-xl border border-slate-200 bg-white shadow-sm', className)}
+      className={cn('min-w-0 max-w-full rounded-xl border border-slate-200 bg-white shadow-sm', className)}
       {...props}
     >
       {children}
@@ -208,24 +217,49 @@ export function StatCard({
   value,
   hint,
   tone = 'default',
+  to,
 }: {
   label: string;
   value: React.ReactNode;
   hint?: React.ReactNode;
   tone?: 'default' | 'warning' | 'danger' | 'success';
+  /** When set, the whole card becomes a link to the data it summarises. */
+  to?: string;
 }) {
   const tones = {
-    default: 'text-slate-900',
-    warning: 'text-amber-600',
-    danger: 'text-rose-600',
-    success: 'text-emerald-600',
+    default: 'text-slate-900 dark:text-white',
+    warning: 'text-amber-600 dark:text-amber-400',
+    danger: 'text-rose-600 dark:text-rose-400',
+    success: 'text-emerald-600 dark:text-emerald-400',
   } as const;
+
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
+        {to ? (
+          <ArrowUpRight
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-indigo-600 group-focus-visible:text-indigo-600 dark:text-slate-600 dark:group-hover:text-indigo-400"
+          />
+        ) : null}
+      </div>
+      <p className={cn('mt-1.5 text-2xl font-semibold tabular-nums tracking-tight', tones[tone])}>
+        {value}
+      </p>
+      {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
+    </>
+  );
+
+  if (!to) return <Card className="px-5 py-4">{content}</Card>;
+
   return (
-    <Card className="px-5 py-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={cn('mt-1 text-2xl font-semibold tabular-nums', tones[tone])}>{value}</p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
-    </Card>
+    <Link
+      to={to}
+      className="group block rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:hover:border-indigo-700 dark:focus-visible:ring-indigo-400 dark:focus-visible:ring-offset-slate-950"
+    >
+      {content}
+    </Link>
   );
 }
 

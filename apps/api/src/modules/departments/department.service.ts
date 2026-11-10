@@ -442,8 +442,75 @@ export async function getSystemDashboard(
   };
 }
 
-/** Staff workload view for a department (PRD §13.1). */
-export async function getStaffWorkload(auth: AuthContext, departmentId: string) {
+export interface ReportTrendOptions {
+  from?: Date | undefined;
+  to?: Date | undefined;
+  granularity?: 'hour' | 'day' | undefined;
+}
+
+/**
+ * Created and resolved counts for an explicit time range, bucketed by hour or
+ * day. Powers the "Report volume" chart's date and time filters.
+ */
+export async function getReportTrend(auth: AuthContext, options: ReportTrendOptions = {}) {
+  if (!auth.permissions.has('analytics:global')) {
+    throw forbidden('Global analytics are restricted to administrators.');
+  }
+
+  const granularity = options.granularity ?? 'day';
+  const to = options.to ?? clock.now();
+  const from = options.from ?? new Date(to.getTime() - 13 * 86_400_000);
+  const stepMs = granularity === 'hour' ? 3_600_000 : 86_400_000;
+
+  const align = (date: Date): Date => {
+    const copy = new Date(date.getTime());
+    if (granularity === 'hour') copy.setUTCMinutes(0, 0, 0);
+    else copy.setUTCHours(0, 0, 0, 0);
+    return copy;
+  };
+
+  const start = align(from);
+  const end = new Date(align(to).getTime() + stepMs);
+  const bucketCount = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / stepMs));
+  if (bucketCount > 1500) {
+    throw badRequest('Select a shorter range: at most 1,500 buckets can be charted.');
+  }
+
+  const [createdTickets, resolvedTickets] = await Promise.all([
+    prisma.ticket.findMany({
+      where: { createdAt: { gte: start, lt: end } },
+      select: { createdAt: true },
+    }),
+    prisma.ticket.findMany({
+      where: { resolvedAt: { gte: start, lt: end } },
+      select: { resolvedAt: true },
+    }),
+  ]);
+
+  const bucketIndex = (value: Date): number =>
+    Math.floor((value.getTime() - start.getTime()) / stepMs);
+  const createdPerBucket = new Map<number, number>();
+  for (const ticket of createdTickets) {
+    const index = bucketIndex(ticket.createdAt);
+    createdPerBucket.set(index, (createdPerBucket.get(index) ?? 0) + 1);
+  }
+  const resolvedPerBucket = new Map<number, number>();
+  for (const ticket of resolvedTickets) {
+    if (!ticket.resolvedAt) continue;
+    const index = bucketIndex(ticket.resolvedAt);
+    resolvedPerBucket.set(index, (resolvedPerBucket.get(index) ?? 0) + 1);
+  }
+
+  const trend = Array.from({ length: bucketCount }, (_, index) => ({
+    date: new Date(start.getTime() + index * stepMs).toISOString(),
+    created: createdPerBucket.get(index) ?? 0,
+    resolved: resolvedPerBucket.get(index) ?? 0,
+  }));
+
+  return { trend, granularity, from: start.toISOString(), to: new Date(end.getTime() - 1).toISOString() };
+}
+
+/** Staff workload view for a department (PRD §13.1). */export async function getStaffWorkload(auth: AuthContext, departmentId: string) {
   assertDepartmentScope(auth, departmentId);
 
   const memberships = await prisma.departmentMembership.findMany({

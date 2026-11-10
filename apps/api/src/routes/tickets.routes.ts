@@ -50,6 +50,11 @@ ticketRouter.get('/', requireAuth, validate(ticketListQuerySchema, 'query'), asy
   res.json(result);
 });
 
+ticketRouter.get('/me/dashboard', requireAuth, async (req, res) => {
+  const dashboard = await ticketService.getRoleDashboard(req.auth!);
+  res.json({ dashboard });
+});
+
 ticketRouter.get('/:id', requireAuth, validate(idParamSchema, 'params'), async (req, res) => {
   const ticket = await ticketService.getTicketForUser(req.auth!, req.params.id!);
   res.json({ ticket });

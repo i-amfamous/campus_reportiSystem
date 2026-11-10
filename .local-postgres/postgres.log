@@ -246,3 +246,19 @@
 2026-11-10 02:35:43.870 GMT [66167] LOG:  checkpoint complete: wrote 88 buffers (0.5%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=8.867 s, sync=0.004 s, total=8.873 s; sync files=54, longest=0.001 s, average=0.001 s; distance=553 kB, estimate=5307 kB; lsn=0/11EAACE8, redo lsn=0/11EAAC90
 2026-11-10 02:40:34.880 GMT [66167] LOG:  checkpoint starting: time
 2026-11-10 02:40:36.997 GMT [66167] LOG:  checkpoint complete: wrote 21 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.114 s, sync=0.003 s, total=2.118 s; sync files=18, longest=0.001 s, average=0.001 s; distance=82 kB, estimate=4784 kB; lsn=0/11EBF6B0, redo lsn=0/11EBF658
+2026-11-10 02:45:35.007 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 02:45:35.615 GMT [66167] LOG:  checkpoint complete: wrote 6 buffers (0.0%), wrote 0 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.605 s, sync=0.001 s, total=0.608 s; sync files=3, longest=0.001 s, average=0.001 s; distance=43 kB, estimate=4310 kB; lsn=0/11ECA588, redo lsn=0/11ECA530
+2026-11-10 03:00:35.637 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 03:00:35.741 GMT [66167] LOG:  checkpoint complete: wrote 1 buffers (0.0%), wrote 0 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.101 s, sync=0.001 s, total=0.104 s; sync files=1, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=3879 kB; lsn=0/11ECACC8, redo lsn=0/11ECAC70
+2026-11-10 03:00:52.208 GMT [92587] ERROR:  table "_prisma_migrations" does not exist
+2026-11-10 03:00:52.208 GMT [92587] STATEMENT:  DROP TABLE _prisma_migrations
+2026-11-10 03:05:35.395 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 03:06:20.381 GMT [66167] LOG:  checkpoint complete: wrote 426 buffers (2.6%), wrote 10 SLRU buffers; 0 WAL file(s) added, 0 removed, 2 recycled; write=42.899 s, sync=1.024 s, total=44.987 s; sync files=14258, longest=0.002 s, average=0.001 s; distance=18626 kB, estimate=18626 kB; lsn=0/130FB868, redo lsn=0/130FB7D8
+2026-11-10 03:30:35.279 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 03:30:36.086 GMT [66167] LOG:  checkpoint complete: wrote 8 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.805 s, sync=0.001 s, total=0.808 s; sync files=9, longest=0.001 s, average=0.001 s; distance=28 kB, estimate=16766 kB; lsn=0/131028E0, redo lsn=0/13102888
+2026-11-10 03:40:35.016 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 03:40:35.829 GMT [66167] LOG:  checkpoint complete: wrote 8 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.808 s, sync=0.002 s, total=0.813 s; sync files=9, longest=0.001 s, average=0.001 s; distance=20 kB, estimate=15092 kB; lsn=0/131079B0, redo lsn=0/13107958
+2026-11-10 03:42:51.733 GMT [11023] ERROR:  table "_prisma_migrations" does not exist
+2026-11-10 03:42:51.733 GMT [11023] STATEMENT:  DROP TABLE _prisma_migrations
+2026-11-10 03:45:35.235 GMT [66167] LOG:  checkpoint starting: time
+2026-11-10 03:46:19.147 GMT [66167] LOG:  checkpoint complete: wrote 419 buffers (2.6%), wrote 10 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=42.179 s, sync=0.707 s, total=43.912 s; sync files=14251, longest=0.003 s, average=0.001 s; distance=18516 kB, estimate=18516 kB; lsn=0/1431CAA0, redo lsn=0/1431CA10

@@ -9,6 +9,7 @@ import {
   registerSchema,
   resendVerificationSchema,
   resetPasswordSchema,
+  updateProfileSchema,
   verifyOtpSchema,
 } from '@campus-resolve/shared';
 import { validate } from '../middleware/validate';
@@ -127,6 +128,12 @@ authRouter.post('/logout', requireAuth, async (req, res) => {
 
 authRouter.get('/me', requireAuth, async (req, res) => {
   res.json({ user: authService.toSessionUser(req.auth!) });
+});
+
+/** Editable profile fields for the signed-in person. */
+authRouter.patch('/me', requireAuth, validate(updateProfileSchema), async (req, res) => {
+  const user = await authService.updateProfile(req.auth!, req.body);
+  res.json({ user });
 });
 
 authRouter.post(

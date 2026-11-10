@@ -54,8 +54,13 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Compact, human duration for service targets and averages: 45m, 8h, 4h 17m, 2d 1h. */
 export function formatMinutesAsDuration(minutes: number): string {
-  if (minutes % 1440 === 0) return `${minutes / 1440} day(s)`;
-  if (minutes % 60 === 0) return `${minutes / 60} hour(s)`;
-  return `${minutes} minute(s)`;
+  const total = Math.max(0, Math.round(minutes));
+  const days = Math.floor(total / 1440);
+  const hours = Math.floor((total % 1440) / 60);
+  const mins = total % 60;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  return `${mins}m`;
 }

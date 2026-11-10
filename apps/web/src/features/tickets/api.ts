@@ -7,6 +7,8 @@ import type {
   Department,
   DepartmentMetrics,
   Paginated,
+  ReportTrend,
+  RoleDashboard,
   SystemDashboard,
   TicketDetail,
   TicketSummary,
@@ -24,6 +26,10 @@ export interface TicketFilters {
   overdue?: boolean;
   unassigned?: boolean;
   awaitingStudent?: boolean;
+  open?: boolean;
+  resolved?: boolean;
+  escalated?: boolean;
+  reopened?: boolean;
   from?: string;
   to?: string;
   sort?: string;
@@ -63,6 +69,18 @@ export function useTicket(ticketId: string | undefined) {
     queryKey: ['ticket', ticketId],
     queryFn: () => api.get<{ ticket: TicketDetail }>(`/api/v1/tickets/${ticketId}`),
     enabled: Boolean(ticketId),
+  });
+}
+
+/**
+ * Role-scoped dashboard data. The API applies the caller's ticket scope, so the
+ * same hook powers the student and staff dashboards without exposing extra data.
+ */
+export function useRoleDashboard() {
+  return useQuery({
+    queryKey: ['dashboard', 'me'],
+    queryFn: () => api.get<{ dashboard: RoleDashboard }>('/api/v1/tickets/me/dashboard'),
+    staleTime: 30_000,
   });
 }
 
@@ -218,6 +236,26 @@ export function useSystemDashboard() {
   return useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: () => api.get<{ dashboard: SystemDashboard }>('/api/v1/admin/dashboard'),
+  });
+}
+
+export interface ReportTrendFilters {
+  from: string;
+  to: string;
+  granularity: 'hour' | 'day';
+}
+
+/** Created/resolved counts for an explicit range, used by the trend chart. */
+export function useReportTrend(filters: ReportTrendFilters) {
+  const params = new URLSearchParams();
+  params.set('from', filters.from);
+  params.set('to', filters.to);
+  params.set('granularity', filters.granularity);
+  return useQuery({
+    queryKey: ['admin', 'dashboard', 'trend', filters],
+    queryFn: () => api.get<ReportTrend>(`/api/v1/admin/dashboard/trend?${params.toString()}`),
+    enabled: Boolean(filters.from && filters.to),
+    placeholderData: (previous) => previous,
   });
 }
 

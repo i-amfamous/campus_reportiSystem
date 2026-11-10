@@ -1,6 +1,8 @@
 import type { Prisma, Ticket } from '@prisma/client';
 import {
   STATUS_LABELS,
+  PRIORITY_LABELS,
+  INACTIVE_STATUSES,
   canTransition,
   formatReference,
   isInactiveStatus,
@@ -332,6 +334,294 @@ export interface TicketScopeFilter {
   where: Prisma.TicketWhereInput;
 }
 
+/** Statuses that still need work from someone. */
+const OPEN_STATUSES: TicketStatus[] = [
+  'SUBMITTED',
+  'AWAITING_ASSIGNMENT',
+  'ASSIGNED',
+  'ACKNOWLEDGED',
+  'IN_PROGRESS',
+  'AWAITING_STUDENT',
+  'AWAITING_EXTERNAL',
+  'ESCALATED',
+  'REOPENED',
+];
+
+export interface RoleDashboard {
+  role: 'STUDENT' | 'OFFICER' | 'DEPARTMENT_HEAD' | 'ADMIN';
+  identity: {
+    fullName: string;
+    roles: string[];
+    departmentNames: string[];
+    isGlobal: boolean;
+  };
+  totals: {
+    total: number;
+    open: number;
+    unassigned: number;
+    overdue: number;
+    escalated: number;
+    resolved: number;
+    awaitingStudent: number;
+    reopened: number;
+    resolutionRate: number;
+    assignedToMe: number;
+    submittedByMe: number;
+    newSinceLastLogin: number;
+  };
+  timings: {
+    averageFirstResponseMinutes: number | null;
+    averageResolutionMinutes: number | null;
+  };
+  trend: Array<{ date: string; created: number; resolved: number }>;
+  statusBreakdown: Array<{ status: TicketStatus; label: string; count: number }>;
+  priorityBreakdown: Array<{ priority: TicketPriority; label: string; count: number }>;
+  departments: Array<{
+    id: string;
+    name: string;
+    total: number;
+    open: number;
+    unassigned: number;
+    overdue: number;
+    resolutionTargetMinutes: number | null;
+  }>;
+}
+
+/**
+ * A role-scoped overview for the signed-in person. Every query passes through
+ * `buildTicketScopeFilter`, so students only see their own reports and staff
+ * only see the departments they belong to. Admins get the institution view.
+ */
+export async function getRoleDashboard(auth: AuthContext): Promise<RoleDashboard> {
+  const scope = buildTicketScopeFilter(auth);
+  const isGlobal = policy.isGlobalAdmin(auth);
+  const isStaff =
+    isGlobal ||
+    auth.permissions.has('ticket:read:department') ||
+    auth.permissions.has('ticket:read:any');
+  const isHead = auth.departments.some(
+    (department) => department.isActive && department.departmentRole === 'HEAD',
+  );
+  const role: RoleDashboard['role'] = isGlobal
+    ? 'ADMIN'
+    : isHead
+      ? 'DEPARTMENT_HEAD'
+      : isStaff
+        ? 'OFFICER'
+        : 'STUDENT';
+
+  const overdueWhere: Prisma.TicketWhereInput = {
+    OR: [
+      { firstResponseOverdue: true },
+      { resolutionOverdue: true },
+      { status: 'ESCALATED' },
+    ],
+  };
+
+  const [
+    total,
+    open,
+    unassigned,
+    overdue,
+    escalated,
+    resolved,
+    awaitingStudent,
+    reopenedTickets,
+    assignedToMe,
+    submittedByMe,
+    newSinceLastLogin,
+  ] = await Promise.all([
+    prisma.ticket.count({ where: scope }),
+    prisma.ticket.count({ where: { AND: [scope, { status: { in: OPEN_STATUSES } }] } }),
+    prisma.ticket.count({ where: { AND: [scope, { assignedToId: null }] } }),
+    prisma.ticket.count({ where: { AND: [scope, overdueWhere] } }),
+    prisma.ticket.count({ where: { AND: [scope, { escalationLevel: { gt: 0 } }] } }),
+    prisma.ticket.count({
+      where: { AND: [scope, { status: { in: ['RESOLVED', 'CLOSED'] } }] },
+    }),
+    prisma.ticket.count({ where: { AND: [scope, { status: 'AWAITING_STUDENT' }] } }),
+    prisma.ticket.count({ where: { AND: [scope, { reopenedCount: { gt: 0 } }] } }),
+    prisma.ticket.count({ where: { AND: [scope, { assignedToId: auth.userId }] } }),
+    prisma.ticket.count({ where: { ...scope, studentId: auth.userId } }),
+    auth.lastLoginAt
+      ? prisma.ticket.count({
+          where: { AND: [scope, { createdAt: { gt: auth.lastLoginAt } }] },
+        })
+      : Promise.resolve(0),
+  ]);
+
+  const responseRows = await prisma.ticket.findMany({
+    where: { AND: [scope, { firstResponseAt: { not: null } }] },
+    select: { createdAt: true, firstResponseAt: true },
+  });
+  const resolutionRows = await prisma.ticket.findMany({
+    where: { AND: [scope, { resolvedAt: { not: null } }] },
+    select: { createdAt: true, resolvedAt: true },
+  });
+
+  const average = (values: number[]): number | null =>
+    values.length === 0
+      ? null
+      : Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+
+  const firstResponseMinutes = average(
+    responseRows
+      .filter((ticket) => ticket.firstResponseAt)
+      .map((ticket) => (ticket.firstResponseAt!.getTime() - ticket.createdAt.getTime()) / 60_000),
+  );
+  const resolutionMinutes = average(
+    resolutionRows
+      .filter((ticket) => ticket.resolvedAt)
+      .map((ticket) => (ticket.resolvedAt!.getTime() - ticket.createdAt.getTime()) / 60_000),
+  );
+
+  const trendDays = 14;
+  const trendStart = new Date();
+  trendStart.setUTCHours(0, 0, 0, 0);
+  trendStart.setUTCDate(trendStart.getUTCDate() - (trendDays - 1));
+
+  const [createdRows, resolvedRows, statusGroups, priorityGroups, departmentGroups] =
+    await Promise.all([
+      prisma.ticket.findMany({
+        where: { AND: [scope, { createdAt: { gte: trendStart } }] },
+        select: { createdAt: true },
+      }),
+      prisma.ticket.findMany({
+        where: { AND: [scope, { resolvedAt: { gte: trendStart } }] },
+        select: { resolvedAt: true },
+      }),
+      prisma.ticket.groupBy({ by: ['status'], where: scope, _count: { _all: true } }),
+      prisma.ticket.groupBy({ by: ['priority'], where: scope, _count: { _all: true } }),
+      prisma.ticket.groupBy({ by: ['departmentId'], where: scope, _count: { _all: true } }),
+    ]);
+
+  const dayKey = (value: Date): string => value.toISOString().slice(0, 10);
+  const createdPerDay = new Map<string, number>();
+  for (const ticket of createdRows) {
+    const key = dayKey(ticket.createdAt);
+    createdPerDay.set(key, (createdPerDay.get(key) ?? 0) + 1);
+  }
+  const resolvedPerDay = new Map<string, number>();
+  for (const ticket of resolvedRows) {
+    if (!ticket.resolvedAt) continue;
+    const key = dayKey(ticket.resolvedAt);
+    resolvedPerDay.set(key, (resolvedPerDay.get(key) ?? 0) + 1);
+  }
+  const trend = Array.from({ length: trendDays }, (_, index) => {
+    const date = new Date(trendStart);
+    date.setUTCDate(trendStart.getUTCDate() + index);
+    const key = dayKey(date);
+    return {
+      date: key,
+      created: createdPerDay.get(key) ?? 0,
+      resolved: resolvedPerDay.get(key) ?? 0,
+    };
+  });
+
+  const statusBreakdown = statusGroups
+    .map((group) => ({
+      status: group.status,
+      label: STATUS_LABELS[group.status],
+      count: group._count._all,
+    }))
+    .sort((left, right) => right.count - left.count);
+
+  const priorityBreakdown = priorityGroups
+    .map((group) => ({
+      priority: group.priority,
+      label: PRIORITY_LABELS[group.priority],
+      count: group._count._all,
+    }))
+    .sort((left, right) => right.count - left.count);
+
+  /*
+   * Staff see the departments they belong to even when the queue is empty.
+   * Students only ever see departments their own reports were routed to.
+   */
+  const staffDepartmentIds = isStaff
+    ? auth.departments.filter((department) => department.isActive).map((d) => d.departmentId)
+    : [];
+  const departmentIds = Array.from(
+    new Set([...staffDepartmentIds, ...departmentGroups.map((group) => group.departmentId)]),
+  );
+
+  const departmentRows =
+    departmentIds.length === 0
+      ? []
+      : await prisma.department.findMany({
+          where: { id: { in: departmentIds } },
+          select: {
+            id: true,
+            name: true,
+            sortOrder: true,
+            serviceTarget: { select: { resolutionMinutes: true } },
+          },
+        });
+
+  const departments = await Promise.all(
+    departmentRows
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name))
+      .map(async (department) => {
+        const departmentScope: Prisma.TicketWhereInput = {
+          AND: [scope, { departmentId: department.id }],
+        };
+        const [departmentTotal, departmentOpen, departmentUnassigned, departmentOverdue] =
+          await Promise.all([
+            prisma.ticket.count({ where: departmentScope }),
+            prisma.ticket.count({
+              where: { AND: [departmentScope, { status: { in: OPEN_STATUSES } }] },
+            }),
+            prisma.ticket.count({ where: { AND: [departmentScope, { assignedToId: null }] } }),
+            prisma.ticket.count({ where: { AND: [departmentScope, overdueWhere] } }),
+          ]);
+        return {
+          id: department.id,
+          name: department.name,
+          total: departmentTotal,
+          open: departmentOpen,
+          unassigned: departmentUnassigned,
+          overdue: departmentOverdue,
+          resolutionTargetMinutes: department.serviceTarget?.resolutionMinutes ?? null,
+        };
+      }),
+  );
+
+  return {
+    role,
+    identity: {
+      fullName: auth.fullName,
+      roles: auth.roles,
+      departmentNames: auth.departments
+        .filter((department) => department.isActive)
+        .map((department) => department.departmentName),
+      isGlobal,
+    },
+    totals: {
+      total,
+      open,
+      unassigned,
+      overdue,
+      escalated,
+      resolved,
+      awaitingStudent,
+      reopened: reopenedTickets,
+      resolutionRate: total === 0 ? 0 : Math.round((resolved / total) * 1000) / 10,
+      assignedToMe,
+      submittedByMe,
+      newSinceLastLogin,
+    },
+    timings: {
+      averageFirstResponseMinutes: firstResponseMinutes,
+      averageResolutionMinutes: resolutionMinutes,
+    },
+    trend,
+    statusBreakdown,
+    priorityBreakdown,
+    departments,
+  };
+}
+
+
 export function buildTicketScopeFilter(auth: AuthContext): Prisma.TicketWhereInput {
   if (policy.isGlobalAdmin(auth)) return {};
   const departmentIds = auth.departments
@@ -362,6 +652,10 @@ export interface ListTicketsOptions extends PaginationOptions {
   overdue?: boolean | undefined;
   unassigned?: boolean | undefined;
   awaitingStudent?: boolean | undefined;
+  open?: boolean | undefined;
+  resolved?: boolean | undefined;
+  escalated?: boolean | undefined;
+  reopened?: boolean | undefined;
   from?: Date | undefined;
   to?: Date | undefined;
   sort?: 'createdAt' | 'updatedAt' | 'referenceNumber' | 'priority' | undefined;
@@ -390,6 +684,10 @@ export async function listTickets(auth: AuthContext, options: ListTicketsOptions
       options.assignedToId ? { assignedToId: options.assignedToId } : {},
       options.unassigned ? { assignedToId: null } : {},
       options.awaitingStudent ? { status: 'AWAITING_STUDENT' } : {},
+      options.open ? { status: { notIn: [...INACTIVE_STATUSES] } } : {},
+      options.resolved ? { status: { in: ['RESOLVED', 'CLOSED'] } } : {},
+      options.escalated ? { escalationLevel: { gt: 0 } } : {},
+      options.reopened ? { reopenedCount: { gt: 0 } } : {},
       options.overdue
         ? {
             OR: [

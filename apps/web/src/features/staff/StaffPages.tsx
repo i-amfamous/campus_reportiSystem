@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { lazy, Suspense, useMemo } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { STATUS_LABELS, TICKET_STATUSES, type TicketStatus } from '@campus-resolve/shared';
 import {
   Badge,
@@ -23,64 +23,185 @@ import {
   Tr,
 } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
-import { formatDuration, formatDateTime, relativeTime } from '../../lib/format';
+import { formatDuration, formatDateTime, formatMinutesAsDuration, relativeTime } from '../../lib/format';
 import {
   errorMessage,
   useDepartmentAnalytics,
   useDepartmentWorkload,
   useDepartments,
+  useRoleDashboard,
   useStaffTickets,
 } from '../tickets/api';
 
+// Charts are loaded only when a dashboard is opened.
+const RoleDashboardCharts = lazy(() =>
+  import('../admin/charts').then((module) => ({ default: module.RoleDashboardCharts })),
+);
+
 export function StaffDashboardPage() {
   const auth = useAuth();
+  const dashboard = useRoleDashboard();
   const queue = useStaffTickets({ pageSize: 100 });
   const items = queue.data?.items ?? [];
 
-  const counts = useMemo(
-    () => ({
-      open: items.filter((ticket) => !['RESOLVED', 'CLOSED', 'WITHDRAWN'].includes(ticket.status))
-        .length,
-      unassigned: items.filter((ticket) => ticket.assignedTo === null).length,
-      overdue: items.filter((ticket) => ticket.overdue).length,
-      mine: items.filter((ticket) => ticket.assignedTo?.id === auth.user?.id).length,
-    }),
-    [items, auth.user?.id],
+  const attentionItems = useMemo(
+    () => items.filter((ticket) => ticket.overdue || ticket.assignedTo === null).slice(0, 8),
+    [items],
   );
 
-  if (queue.isLoading) return <LoadingState label="Loading your queue…" />;
-  if (queue.isError) {
+  if (queue.isLoading || dashboard.isLoading) {
+    return <LoadingState label="Loading your dashboard…" />;
+  }
+  if (queue.isError || dashboard.isError) {
     return (
       <ErrorState
-        description={errorMessage(queue.error)}
-        action={<Button onClick={() => void queue.refetch()}>Try again</Button>}
+        description={errorMessage(queue.error ?? dashboard.error)}
+        action={
+          <Button
+            onClick={() => {
+              void queue.refetch();
+              void dashboard.refetch();
+            }}
+          >
+            Try again
+          </Button>
+        }
       />
     );
   }
 
+  const data = dashboard.data!.dashboard;
+  const totals = data.totals;
+  const roleLabel = data.role === 'DEPARTMENT_HEAD' ? 'Department head' : 'Staff';
+  const departmentNames = data.identity.departmentNames;
+  const hasReports = totals.total > 0;
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Staff overview</h1>
-        <p className="text-sm text-slate-500">
-          Reports across the departments you are assigned to.
-        </p>
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+              Staff overview
+            </h1>
+            <Badge tone={data.role === 'DEPARTMENT_HEAD' ? 'info' : 'default'}>{roleLabel}</Badge>
+          </div>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {departmentNames.length > 0
+              ? `Reports across ${departmentNames.join(', ')}.`
+              : 'Reports across the departments you are assigned to.'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/staff/queue"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300"
+          >
+            Open work queue
+          </Link>
+          <Link
+            to="/staff/queue?scope=mine"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+          >
+            My assignments
+          </Link>
+        </div>
       </header>
 
+      {totals.newSinceLastLogin > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 dark:border-indigo-900 dark:bg-indigo-950/40">
+          <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">
+            {totals.newSinceLastLogin} new report{totals.newSinceLastLogin === 1 ? '' : 's'} since
+            your last visit
+          </p>
+          <Link
+            to="/staff/queue?scope=open"
+            className="text-xs font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
+          >
+            Review open reports
+          </Link>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Open reports" value={counts.open} />
-        <StatCard label="Assigned to you" value={counts.mine} />
+        <StatCard
+          label="Open reports"
+          value={totals.open}
+          hint={hasReports ? `${totals.total} in your scope` : 'No reports in scope yet'}
+          to="/staff/queue?scope=open"
+        />
+        <StatCard
+          label="Assigned to you"
+          value={totals.assignedToMe}
+          hint={totals.assignedToMe > 0 ? 'In your personal queue' : 'Nothing assigned right now'}
+          to="/staff/queue?scope=mine"
+        />
         <StatCard
           label="Unassigned"
-          value={counts.unassigned}
-          tone={counts.unassigned > 0 ? 'warning' : 'default'}
+          value={totals.unassigned}
+          tone={totals.unassigned > 0 ? 'warning' : 'default'}
+          hint={totals.unassigned > 0 ? 'Waiting for an owner' : 'Everything assigned'}
+          to="/staff/queue?scope=unassigned"
         />
         <StatCard
           label="Overdue"
-          value={counts.overdue}
-          tone={counts.overdue > 0 ? 'danger' : 'success'}
+          value={totals.overdue}
+          tone={totals.overdue > 0 ? 'danger' : 'success'}
+          hint={totals.overdue > 0 ? 'Past the response or resolution target' : 'All within target'}
+          to="/staff/queue?scope=overdue"
         />
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardBody className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Average first response
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                {data.timings.averageFirstResponseMinutes === null
+                  ? 'No data'
+                  : formatMinutesAsDuration(data.timings.averageFirstResponseMinutes)}
+              </p>
+            </div>
+            <p className="max-w-[12rem] text-xs text-slate-500 dark:text-slate-400">
+              Time from submission to the first staff response in your scope.
+            </p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Average resolution
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                {data.timings.averageResolutionMinutes === null
+                  ? 'No data'
+                  : formatMinutesAsDuration(data.timings.averageResolutionMinutes)}
+              </p>
+            </div>
+            <p className="max-w-[12rem] text-xs text-slate-500 dark:text-slate-400">
+              Time from submission to resolution for reports in your scope.
+            </p>
+          </CardBody>
+        </Card>
+      </div>
+
+      {hasReports ? (
+        <Suspense
+          fallback={
+            <Card>
+              <CardBody>
+                <LoadingState label="Loading your charts…" />
+              </CardBody>
+            </Card>
+          }
+        >
+          <RoleDashboardCharts dashboard={data} audience="staff" />
+        </Suspense>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -88,12 +209,15 @@ export function StaffDashboardPage() {
             title="Needs attention first"
             description="Overdue and unassigned reports, oldest first."
             action={
-              <Link to="/staff" className="text-xs font-semibold text-indigo-700 hover:underline">
+              <Link
+                to="/staff/queue?scope=overdue"
+                className="text-xs font-semibold text-indigo-700 hover:underline dark:text-indigo-300"
+              >
                 Open the queue
               </Link>
             }
           />
-          {items.filter((ticket) => ticket.overdue || ticket.assignedTo === null).length === 0 ? (
+          {attentionItems.length === 0 ? (
             <EmptyState
               title="Nothing needs attention"
               description="Every report is assigned and within target."
@@ -109,31 +233,30 @@ export function StaffDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {items
-                  .filter((ticket) => ticket.overdue || ticket.assignedTo === null)
-                  .slice(0, 8)
-                  .map((ticket) => (
-                    <Tr key={ticket.id}>
-                      <Td className="font-mono text-xs">{ticket.referenceNumber}</Td>
-                      <Td>
-                        <Link
-                          to={`/tickets/${ticket.id}`}
-                          className="font-medium text-indigo-700 hover:underline"
-                        >
-                          {ticket.subject}
-                        </Link>
-                        {ticket.overdue ? (
-                          <Badge tone="danger" className="mt-1">
-                            Overdue
-                          </Badge>
-                        ) : null}
-                      </Td>
-                      <Td>
-                        <StatusBadge status={ticket.status} label={ticket.statusLabel} />
-                      </Td>
-                      <Td className="text-xs text-slate-500">{relativeTime(ticket.createdAt)}</Td>
-                    </Tr>
-                  ))}
+                {attentionItems.map((ticket) => (
+                  <Tr key={ticket.id}>
+                    <Td className="font-mono text-xs">{ticket.referenceNumber}</Td>
+                    <Td>
+                      <Link
+                        to={`/tickets/${ticket.id}`}
+                        className="font-medium text-indigo-700 hover:underline dark:text-indigo-300"
+                      >
+                        {ticket.subject}
+                      </Link>
+                      {ticket.overdue ? (
+                        <Badge tone="danger" className="mt-1">
+                          Overdue
+                        </Badge>
+                      ) : null}
+                    </Td>
+                    <Td>
+                      <StatusBadge status={ticket.status} label={ticket.statusLabel} />
+                    </Td>
+                    <Td className="text-xs text-slate-500 dark:text-slate-400">
+                      {relativeTime(ticket.createdAt)}
+                    </Td>
+                  </Tr>
+                ))}
               </tbody>
             </Table>
           )}
@@ -146,22 +269,35 @@ export function StaffDashboardPage() {
           />
           <CardBody className="space-y-2">
             {(auth.user?.departments ?? []).length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 You are not assigned to a department yet. Ask an administrator to add you.
               </p>
             ) : (
-              (auth.user?.departments ?? []).map((department) => (
-                <Link
-                  key={department.departmentId}
-                  to={`/staff/departments/${department.departmentId}`}
-                  className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3 hover:bg-slate-100"
-                >
-                  <span className="text-sm font-medium text-slate-800">
-                    {department.departmentName}
-                  </span>
-                  <span className="text-xs text-slate-500">View metrics</span>
-                </Link>
-              ))
+              (auth.user?.departments ?? []).map((department) => {
+                const metrics = data.departments.find(
+                  (item) => item.id === department.departmentId,
+                );
+                return (
+                  <Link
+                    key={department.departmentId}
+                    to={`/staff/departments/${department.departmentId}`}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3 transition-colors hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                        {department.departmentName}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {department.departmentRole === 'HEAD' ? 'Head' : 'Officer'}
+                        {metrics ? ` · ${metrics.open} open` : ''}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">
+                      View metrics
+                    </span>
+                  </Link>
+                );
+              })
             )}
           </CardBody>
         </Card>
@@ -174,14 +310,48 @@ export function StaffDashboardPage() {
 /* Work queue                                                                 */
 /* -------------------------------------------------------------------------- */
 
+const QUEUE_SCOPES = [
+  { value: 'all', label: 'All reports' },
+  { value: 'open', label: 'Open reports' },
+  { value: 'mine', label: 'Assigned to me' },
+  { value: 'unassigned', label: 'Unassigned' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'escalated', label: 'Escalated' },
+  { value: 'reopened', label: 'Reopened' },
+  { value: 'awaiting', label: 'Awaiting students' },
+  { value: 'resolved', label: 'Resolved or closed' },
+] as const;
+
+type QueueScope = (typeof QUEUE_SCOPES)[number]['value'];
+
+function isQueueScope(value: string | null): value is QueueScope {
+  return QUEUE_SCOPES.some((option) => option.value === value);
+}
+
 export function StaffQueuePage() {
   const auth = useAuth();
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState('');
-  const [search, setSearch] = useState('');
-  const [scope, setScope] = useState<'all' | 'mine' | 'unassigned' | 'overdue'>('all');
-  const [departmentId, setDepartmentId] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const departments = useDepartments();
+
+  // Filters live in the URL so dashboard cards can open a pre-filtered view
+  // and the browser back button restores the previous view.
+  const status = searchParams.get('status') ?? '';
+  const search = searchParams.get('search') ?? '';
+  const scopeParam = searchParams.get('scope');
+  const scope: QueueScope = isQueueScope(scopeParam) ? scopeParam : 'all';
+  const departmentId = searchParams.get('departmentId') ?? '';
+  const pageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+
+  const updateQuery = (updates: Record<string, string | null>, replace = false) => {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(updates)) {
+      if (!value) next.delete(key);
+      else next.set(key, value);
+    }
+    if (!('page' in updates)) next.delete('page');
+    setSearchParams(next, { replace });
+  };
 
   const filters = {
     page,
@@ -192,6 +362,11 @@ export function StaffQueuePage() {
     assignedToId: scope === 'mine' ? auth.user?.id : undefined,
     unassigned: scope === 'unassigned' ? true : undefined,
     overdue: scope === 'overdue' ? true : undefined,
+    open: scope === 'open' ? true : undefined,
+    escalated: scope === 'escalated' ? true : undefined,
+    reopened: scope === 'reopened' ? true : undefined,
+    resolved: scope === 'resolved' ? true : undefined,
+    awaitingStudent: scope === 'awaiting' ? true : undefined,
   };
 
   const queue = useStaffTickets(filters);
@@ -215,20 +390,14 @@ export function StaffQueuePage() {
               id="queue-search"
               placeholder="Reference, subject or keyword"
               value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
+              onChange={(event) => updateQuery({ search: event.target.value }, true)}
             />
           </FormField>
           <FormField label="Status" htmlFor="queue-status">
             <Select
               id="queue-status"
               value={status}
-              onChange={(event) => {
-                setStatus(event.target.value);
-                setPage(1);
-              }}
+              onChange={(event) => updateQuery({ status: event.target.value })}
             >
               <option value="">All statuses</option>
               {TICKET_STATUSES.map((value) => (
@@ -242,25 +411,22 @@ export function StaffQueuePage() {
             <Select
               id="queue-scope"
               value={scope}
-              onChange={(event) => {
-                setScope(event.target.value as typeof scope);
-                setPage(1);
-              }}
+              onChange={(event) =>
+                updateQuery({ scope: event.target.value === 'all' ? null : event.target.value })
+              }
             >
-              <option value="all">All reports</option>
-              <option value="mine">Assigned to me</option>
-              <option value="unassigned">Unassigned</option>
-              <option value="overdue">Overdue</option>
+              {QUEUE_SCOPES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </Select>
           </FormField>
           <FormField label="Department" htmlFor="queue-department">
             <Select
               id="queue-department"
               value={departmentId}
-              onChange={(event) => {
-                setDepartmentId(event.target.value);
-                setPage(1);
-              }}
+              onChange={(event) => updateQuery({ departmentId: event.target.value })}
             >
               <option value="">All my departments</option>
               {(departments.data?.items ?? []).map((department) => (
@@ -333,7 +499,9 @@ export function StaffQueuePage() {
               page={queue.data?.page ?? 1}
               totalPages={queue.data?.totalPages ?? 1}
               total={queue.data?.total ?? 0}
-              onChange={setPage}
+              onChange={(nextPage) =>
+                updateQuery({ page: nextPage > 1 ? String(nextPage) : null }, true)
+              }
             />
           </>
         )}

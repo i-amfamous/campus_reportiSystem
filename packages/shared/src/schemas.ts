@@ -184,6 +184,10 @@ export const createTicketSchema = z.object({
 });
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 
+const booleanQuery = z
+  .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+  .transform((value) => value === true || value === 'true' || value === '1');
+
 export const ticketListQuerySchema = z.object({
   status: z.union([z.enum(TICKET_STATUSES), z.array(z.enum(TICKET_STATUSES))]).optional(),
   categoryId: z.string().uuid().optional(),
@@ -191,9 +195,13 @@ export const ticketListQuerySchema = z.object({
   assignedToId: z.string().uuid().optional(),
   priority: z.union([z.enum(TICKET_PRIORITIES), z.array(z.enum(TICKET_PRIORITIES))]).optional(),
   search: z.string().trim().max(200).optional(),
-  overdue: z.boolean().optional(),
-  unassigned: z.boolean().optional(),
-  awaitingStudent: z.boolean().optional(),
+  overdue: booleanQuery.optional(),
+  unassigned: booleanQuery.optional(),
+  awaitingStudent: booleanQuery.optional(),
+  open: booleanQuery.optional(),
+  resolved: booleanQuery.optional(),
+  escalated: booleanQuery.optional(),
+  reopened: booleanQuery.optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   page: z.coerce.number().int().min(1).optional(),
@@ -368,6 +376,18 @@ export const exportQuerySchema = z.object({
   departmentId: z.string().uuid().optional(),
 });
 export type ExportQuery = z.infer<typeof exportQuerySchema>;
+
+export const reportTrendQuerySchema = z
+  .object({
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+    granularity: z.enum(['hour', 'day']).optional(),
+  })
+  .refine((value) => !value.from || !value.to || value.from <= value.to, {
+    message: 'The start of the range must be before the end.',
+    path: ['from'],
+  });
+export type ReportTrendQuery = z.infer<typeof reportTrendQuerySchema>;
 
 export const uuidSchema = z.string().uuid();
 
