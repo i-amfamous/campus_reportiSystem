@@ -5,10 +5,21 @@
 @layer base {
   html {
     color-scheme: light;
+    scroll-behavior: smooth;
   }
 
   html.dark {
     color-scheme: dark;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-slate-900;
   }
 
   body {

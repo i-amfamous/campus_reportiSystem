@@ -11,6 +11,16 @@ export default defineConfig({
     },
   },
   server: { proxy: { '/api': 'http://localhost:4000' } },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'data-vendor': ['@tanstack/react-query'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

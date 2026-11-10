@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout, PublicLayout } from './layouts/AppLayout';
+import { MarketingLayout } from './layouts/MarketingLayout';
 import {
   PermissionRoute,
   ProtectedRoute,
@@ -44,9 +45,13 @@ import { LoadingState } from './components/ui';
 export default function App() {
   return (
     <Routes>
+      {/* Marketing homepage */}
+      <Route element={<MarketingLayout />}>
+        <Route path="/" element={<HomePage />} />
+      </Route>
+
       {/* Public routes */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-otp" element={<VerifyOtpPage />} />
