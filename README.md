@@ -134,6 +134,45 @@ where the invitee chooses their own password and the account becomes active.
 | `npm run seed`          | Roles, permissions, departments, categories and the bootstrap admin. |
 | `npm run prisma:studio` | A browser view of the database.                                      |
 
+### Starting the database
+
+Campus Resolve uses **PostgreSQL**. A development cluster is bundled with the
+repository and listens on port `5433`, so no system-wide PostgreSQL is needed.
+A local MySQL server, if one is running, is not used by this project.
+
+```bash
+npm run db:start     # start PostgreSQL and create the databases if missing
+npm run db:status    # check whether it is running
+npm run db:url       # print the connection URL
+npm run db:stop      # stop it
+```
+
+On the first run, or after pulling a fresh checkout, apply the schema and load
+the seed data:
+
+```bash
+npm run prisma:deploy   # apply the migrations — safe to re-run
+npm run seed            # roles, departments, categories, bootstrap admin
+```
+
+`npm run prisma:deploy` prints "No pending migrations to apply" when the
+database is already up to date, so it is safe to run every time. The seed
+script is idempotent as well.
+
+If `npm run db:start` fails, read `.local-postgres/postgres.log`. The two
+common causes are a stale `.local-postgres/data/postmaster.pid` left behind by
+an interrupted run, and data-directory permissions that are too open —
+PostgreSQL requires `0700`:
+
+```bash
+rm -f .local-postgres/data/postmaster.pid
+chmod 700 .local-postgres/data
+npm run db:start
+```
+
+The cluster stores its data in `.local-postgres/data`. That directory contains
+machine-specific state and should stay out of version control.
+
 Configuration lives in the environment. See [`.env.example`](.env.example) for
 every variable with its default, and
 [`docs/operations.md`](docs/operations.md) for the values that must change
