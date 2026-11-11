@@ -174,7 +174,7 @@ authRouter.post(
  * Danger Zone: a person erases their own account.
  *
  * The credentials and every personal record are removed, but the tickets,
- * replies and audit trail stay in the system — the institution keeps its
+ * replies and audit trail stay in the system, so the institution keeps its
  * history, the person keeps their right to be forgotten.
  */
 authRouter.delete(

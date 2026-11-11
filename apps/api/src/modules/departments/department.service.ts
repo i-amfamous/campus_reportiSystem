@@ -283,13 +283,16 @@ export async function getDepartmentAnalytics(
 /** System-wide metrics for the administrator dashboard (PRD §14.1). */
 export async function getSystemDashboard(
   auth: AuthContext,
-  options: { from?: Date | undefined } = {},
+  options: { from?: Date | undefined; academicPeriodId?: string | undefined } = {},
 ) {
   if (!auth.permissions.has('analytics:global')) {
     throw forbidden('Global analytics are restricted to administrators.');
   }
 
-  const where: Prisma.TicketWhereInput = options.from ? { createdAt: { gte: options.from } } : {};
+  const where: Prisma.TicketWhereInput = {
+    ...(options.from ? { createdAt: { gte: options.from } } : {}),
+    ...(options.academicPeriodId ? { academicPeriodId: options.academicPeriodId } : {}),
+  };
 
   const [total, open, unassigned, overdue, escalated, resolved, awaitingStudent, reopenedTickets] =
     await Promise.all([
@@ -337,11 +340,21 @@ export async function getSystemDashboard(
 
   const [createdTickets, resolvedTickets, statusGroups, priorityGroups] = await Promise.all([
     prisma.ticket.findMany({
-      where: { createdAt: { gte: trendStart } },
+      where: {
+        ...(options.academicPeriodId
+          ? { academicPeriodId: options.academicPeriodId }
+          : {}),
+        createdAt: { gte: trendStart },
+      },
       select: { createdAt: true },
     }),
     prisma.ticket.findMany({
-      where: { resolvedAt: { gte: trendStart } },
+      where: {
+        ...(options.academicPeriodId
+          ? { academicPeriodId: options.academicPeriodId }
+          : {}),
+        resolvedAt: { gte: trendStart },
+      },
       select: { resolvedAt: true },
     }),
     prisma.ticket.groupBy({ by: ['status'], where, _count: { _all: true } }),
@@ -446,6 +459,7 @@ export interface ReportTrendOptions {
   from?: Date | undefined;
   to?: Date | undefined;
   granularity?: 'hour' | 'day' | undefined;
+  academicPeriodId?: string | undefined;
 }
 
 /**
@@ -478,11 +492,21 @@ export async function getReportTrend(auth: AuthContext, options: ReportTrendOpti
 
   const [createdTickets, resolvedTickets] = await Promise.all([
     prisma.ticket.findMany({
-      where: { createdAt: { gte: start, lt: end } },
+      where: {
+        ...(options.academicPeriodId
+          ? { academicPeriodId: options.academicPeriodId }
+          : {}),
+        createdAt: { gte: start, lt: end },
+      },
       select: { createdAt: true },
     }),
     prisma.ticket.findMany({
-      where: { resolvedAt: { gte: start, lt: end } },
+      where: {
+        ...(options.academicPeriodId
+          ? { academicPeriodId: options.academicPeriodId }
+          : {}),
+        resolvedAt: { gte: start, lt: end },
+      },
       select: { resolvedAt: true },
     }),
   ]);

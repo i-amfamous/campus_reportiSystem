@@ -1,7 +1,7 @@
 export function formatDateTime(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return 'Not set';
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return 'Not set';
   return date.toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -12,16 +12,16 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 }
 
 export function formatDate(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return 'Not set';
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return 'Not set';
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
 }
 
 export function relativeTime(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return 'Not set';
   const date = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return 'Not set';
   const diffMs = date.getTime() - Date.now();
   const absolute = Math.abs(diffMs);
   const units: Array<[number, Intl.RelativeTimeFormatUnit]> = [
@@ -42,7 +42,7 @@ export function relativeTime(value: string | Date | null | undefined): string {
 }
 
 export function formatDuration(minutes: number | null | undefined): string {
-  if (minutes === null || minutes === undefined) return '—';
+  if (minutes === null || minutes === undefined) return 'Not set';
   if (minutes < 60) return `${Math.round(minutes)} min`;
   if (minutes < 1440) return `${(minutes / 60).toFixed(1)} h`;
   return `${(minutes / 1440).toFixed(1)} days`;

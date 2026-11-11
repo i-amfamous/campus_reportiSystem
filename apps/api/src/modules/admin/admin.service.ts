@@ -1,5 +1,11 @@
 import type { Prisma } from '@prisma/client';
-import { ASSIGNABLE_ROLES, ROLE_LABELS, type RoleName } from '@campus-resolve/shared';
+import {
+  ASSIGNABLE_ROLES,
+  ROLE_LABELS,
+  academicPeriodLabel,
+  type RoleName,
+  type SemesterTerm,
+} from '@campus-resolve/shared';
 import { prisma } from '../../lib/prisma';
 import { clock } from '../../config/clock';
 import { getConfig } from '../../config/env';
@@ -686,20 +692,36 @@ export async function exportReport(
     from?: Date | undefined;
     to?: Date | undefined;
     departmentId?: string | undefined;
+    academicPeriodId?: string | undefined;
   } = {},
 ) {
   if (!auth.permissions.has('export:create')) {
     throw forbidden('You are not authorised to export reports.');
   }
 
-  const from = options.from ?? new Date(clock.nowMs() - 30 * 86_400_000);
-  const to = options.to ?? clock.now();
+  const period = options.academicPeriodId
+    ? await prisma.academicPeriod.findUnique({ where: { id: options.academicPeriodId } })
+    : null;
+  if (options.academicPeriodId && !period) throw notFound('Academic period not found.');
+
+  const from =
+    options.from ?? period?.startsAt ?? new Date(clock.nowMs() - 30 * 86_400_000);
+  const to = options.to ?? period?.endsAt ?? clock.now();
+  const periodLabel = period
+    ? academicPeriodLabel({
+        academicYear: period.academicYear,
+        semester: period.semester as SemesterTerm,
+      })
+    : '';
 
   if (type === 'tickets') {
     const tickets = await prisma.ticket.findMany({
       where: {
         createdAt: { gte: from, lte: to },
         ...(options.departmentId ? { departmentId: options.departmentId } : {}),
+        ...(options.academicPeriodId
+          ? { academicPeriodId: options.academicPeriodId }
+          : {}),
       },
       select: {
         referenceNumber: true,
@@ -722,6 +744,7 @@ export async function exportReport(
       subject: ticket.subject,
       status: ticket.status,
       priority: ticket.priority,
+      period: periodLabel,
       category: ticket.category.name,
       department: ticket.department.name,
       studentId: ticket.student.studentId ?? '',
@@ -785,12 +808,16 @@ export async function exportReport(
 
   const analytics = await prisma.ticket.groupBy({
     by: ['departmentId', 'status'],
-    where: { createdAt: { gte: from, lte: to } },
+    where: {
+      createdAt: { gte: from, lte: to },
+      ...(options.academicPeriodId ? { academicPeriodId: options.academicPeriodId } : {}),
+    },
     _count: { _all: true },
   });
   const departments = await prisma.department.findMany({ select: { id: true, name: true } });
   const nameById = new Map(departments.map((department) => [department.id, department.name]));
   const rows = analytics.map((entry) => ({
+    period: periodLabel,
     department: nameById.get(entry.departmentId) ?? entry.departmentId,
     status: entry.status,
     count: entry._count._all,

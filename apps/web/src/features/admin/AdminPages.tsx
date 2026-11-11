@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Building2,
+  CalendarRange,
   ClipboardList,
   Clock3,
   FileDown,
@@ -20,9 +21,12 @@ import {
   ASSIGNABLE_ROLES,
   ROLES,
   ROLE_LABELS,
+  SEMESTER_LABELS,
+  SEMESTER_TERMS,
   ACCOUNT_DELETION_CONFIRMATION,
   passwordSchema,
   type RoleName,
+  type SemesterTerm,
 } from '@campus-resolve/shared';
 import {
   Badge,
@@ -50,18 +54,23 @@ import {
 } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { api } from '../../lib/api';
-import { formatDateTime, formatMinutesAsDuration } from '../../lib/format';
+import { formatDate, formatDateTime, formatMinutesAsDuration } from '../../lib/format';
 import {
   errorMessage,
+  useAcademicPeriods,
   useAuditLogs,
   useCategories,
+  useCreateAcademicPeriod,
+  useDeleteAcademicPeriod,
   useDepartments,
+  useSetCurrentAcademicPeriod,
   useSettings,
   useSystemDashboard,
   useSystemHealth,
+  useUpdateAcademicPeriod,
   useUsers,
 } from '../tickets/api';
-import type { Department } from '../../types';
+import type { AcademicPeriod, Department } from '../../types';
 
 // The charting library is large; load it only when the dashboard is opened.
 const DashboardCharts = lazy(() =>
@@ -74,7 +83,17 @@ const DashboardCharts = lazy(() =>
 
 export function AdminDashboardPage() {
   const auth = useAuth();
-  const dashboard = useSystemDashboard();
+  const periods = useAcademicPeriods();
+  const [periodChoice, setPeriodChoice] = useState('current');
+  const currentPeriod = periods.data?.current ?? null;
+  const selectedPeriod =
+    periodChoice === 'current'
+      ? currentPeriod
+      : periodChoice === 'all'
+        ? null
+        : (periods.data?.items.find((period) => period.id === periodChoice) ?? null);
+  const periodFilter = selectedPeriod?.id;
+  const dashboard = useSystemDashboard(periodFilter);
   const health = useSystemHealth();
 
   if (dashboard.isLoading) return <LoadingState label="Loading the operations dashboard…" />;
@@ -155,6 +174,12 @@ export function AdminDashboardPage() {
       visible: auth.hasPermission('user:manage'),
     },
     {
+      label: 'Academic periods',
+      to: '/admin/academic',
+      icon: CalendarRange,
+      visible: auth.hasPermission('settings:institution'),
+    },
+    {
       label: 'Audit trail',
       to: '/admin/audit',
       icon: ScrollText,
@@ -198,16 +223,39 @@ export function AdminDashboardPage() {
             <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
               Operations
             </h1>
-            <Badge tone={totals.overdue > 0 ? 'warning' : 'success'}>
-              {totals.overdue > 0 ? `${totals.overdue} overdue` : 'On track'}
-            </Badge>
+            <Link
+              to="/staff/queue?scope=overdue"
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+              <Badge tone={totals.overdue > 0 ? 'warning' : 'success'}>
+                {totals.overdue > 0 ? `${totals.overdue} overdue` : 'On track'}
+              </Badge>
+            </Link>
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {totals.total} reports across {officeCount} {officeCount === 1 ? 'office' : 'offices'}
+            {selectedPeriod ? ` in ${selectedPeriod.label}` : ' across all periods'}
             {updatedLabel ? `. Updated at ${updatedLabel}.` : '.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Select
+            aria-label="Academic period"
+            value={periodChoice}
+            onChange={(event) => setPeriodChoice(event.target.value)}
+            className="h-9 w-56 text-sm"
+          >
+            <option value="current">
+              {currentPeriod ? `Current: ${currentPeriod.label}` : 'Current period'}
+            </option>
+            <option value="all">All periods</option>
+            {(periods.data?.items ?? []).map((period) => (
+              <option key={period.id} value={period.id}>
+                {period.label}
+                {period.isCurrent ? ' (current)' : ''}
+              </option>
+            ))}
+          </Select>
           <Button
             variant="secondary"
             size="sm"
@@ -335,7 +383,11 @@ export function AdminDashboardPage() {
           </Card>
         }
       >
-        <DashboardCharts dashboard={data} />
+        <DashboardCharts
+          dashboard={data}
+          academicPeriodId={periodFilter}
+          period={selectedPeriod}
+        />
       </Suspense>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -430,7 +482,7 @@ export function AdminDashboardPage() {
                       <Td className="text-xs text-slate-500 dark:text-slate-400">
                         {department.resolutionTargetMinutes
                           ? formatMinutesAsDuration(department.resolutionTargetMinutes)
-                          : '—'}
+                          : 'Not set'}
                       </Td>
                     </Tr>
                   );
@@ -869,7 +921,7 @@ export function AdminUsersPage() {
                         <Td className="text-xs text-slate-600">
                           {user.departments.length > 0
                             ? user.departments.map((entry) => entry.name).join(', ')
-                            : '—'}
+                            : 'Not set'}
                         </Td>
                         <Td>
                           <Badge
@@ -1377,7 +1429,7 @@ export function AdminDepartmentsPage() {
               {(departments.data?.items ?? []).map((department) => (
                 <Tr key={department.id}>
                   <Td className="text-sm font-medium text-slate-800">{department.name}</Td>
-                  <Td className="text-xs text-slate-500">{department.code ?? '—'}</Td>
+                  <Td className="text-xs text-slate-500">{department.code ?? 'Not set'}</Td>
                   <Td>{department.staffCount}</Td>
                   <Td>{department.categoryCount}</Td>
                   <Td className="text-xs text-slate-600">
@@ -1515,7 +1567,7 @@ function ServiceTargetDialog({
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title={`Service target — ${department.name}`}
+        title={`Service target for ${department.name}`}
         description="Targets drive reminders, escalation and the overdue indicators."
         footer={
           <>
@@ -1667,7 +1719,7 @@ export function AdminCategoriesPage() {
               {(categories.data?.items ?? []).map((category) => (
                 <Tr key={category.id}>
                   <Td className="text-sm font-medium text-slate-800">{category.name}</Td>
-                  <Td className="text-sm">{category.departmentName ?? '—'}</Td>
+                  <Td className="text-sm">{category.departmentName ?? 'Not set'}</Td>
                   <Td>
                     <Badge tone="default">{category.defaultPriority}</Badge>
                   </Td>
@@ -1841,20 +1893,346 @@ export function AdminAuditPage() {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Academic periods                                                           */
+/* -------------------------------------------------------------------------- */
+
+function toDateInput(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return date.toISOString().slice(0, 10);
+}
+
+function defaultAcademicYear(): string {
+  const year = new Date().getFullYear();
+  return `${year}/${year + 1}`;
+}
+
+export function AdminAcademicPeriodsPage() {
+  const toast = useToast();
+  const periods = useAcademicPeriods();
+  const createPeriod = useCreateAcademicPeriod();
+  const updatePeriod = useUpdateAcademicPeriod();
+  const setCurrent = useSetCurrentAcademicPeriod();
+  const deletePeriod = useDeleteAcademicPeriod();
+
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<AcademicPeriod | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AcademicPeriod | null>(null);
+  const [academicYear, setAcademicYear] = useState(defaultAcademicYear);
+  const [semester, setSemester] = useState<SemesterTerm>('FIRST');
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
+  const [isCurrent, setIsCurrent] = useState(false);
+
+  const openCreate = () => {
+    const start = new Date();
+    const end = new Date();
+    end.setMonth(end.getMonth() + 4);
+    setEditing(null);
+    setAcademicYear(defaultAcademicYear());
+    setSemester('FIRST');
+    setStartsAt(toDateInput(start));
+    setEndsAt(toDateInput(end));
+    setIsCurrent(false);
+    setOpen(true);
+  };
+
+  const openEdit = (period: AcademicPeriod) => {
+    setEditing(period);
+    setAcademicYear(period.academicYear);
+    setSemester(period.semester);
+    setStartsAt(toDateInput(period.startsAt));
+    setEndsAt(toDateInput(period.endsAt));
+    setIsCurrent(period.isCurrent);
+    setOpen(true);
+  };
+
+  const yearValid = /^\d{4}\/\d{4}$/.test(academicYear);
+  const datesValid = Boolean(startsAt && endsAt) && startsAt < endsAt;
+
+  const save = () => {
+    if (!yearValid || !datesValid) return;
+    const body = {
+      academicYear,
+      semester,
+      startsAt: new Date(`${startsAt}T00:00:00.000Z`).toISOString(),
+      endsAt: new Date(`${endsAt}T23:59:59.000Z`).toISOString(),
+      isCurrent,
+    };
+    const onSuccess = () => {
+      setOpen(false);
+      toast.push({ tone: 'success', title: editing ? 'Period updated' : 'Period added' });
+    };
+    const onError = (error: unknown) => {
+      toast.push({ tone: 'error', title: 'Save failed', description: errorMessage(error) });
+    };
+    if (editing) updatePeriod.mutate({ id: editing.id, body }, { onSuccess, onError });
+    else createPeriod.mutate(body, { onSuccess, onError });
+  };
+
+  const activate = (period: AcademicPeriod) => {
+    setCurrent.mutate(period.id, {
+      onSuccess: () => toast.push({ tone: 'success', title: `${period.label} is now current` }),
+      onError: (error) =>
+        toast.push({ tone: 'error', title: 'Update failed', description: errorMessage(error) }),
+    });
+  };
+
+  const remove = (period: AcademicPeriod) => {
+    deletePeriod.mutate(period.id, {
+      onSuccess: () => {
+        setDeleteTarget(null);
+        toast.push({ tone: 'success', title: 'Period deleted' });
+      },
+      onError: (error) =>
+        toast.push({ tone: 'error', title: 'Delete failed', description: errorMessage(error) }),
+    });
+  };
+
+  if (periods.isLoading) return <LoadingState label="Loading academic periods…" />;
+  if (periods.isError) return <ErrorState description={errorMessage(periods.error)} />;
+
+  const items = periods.data?.items ?? [];
+  const current = periods.data?.current ?? null;
+
+  return (
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+          Academic periods
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Set the academic year and semester everyone reports under. New reports are filed into the
+          current period automatically, and dashboards and exports can be filtered by period.
+        </p>
+      </header>
+
+      <Card className="border-indigo-200 bg-indigo-50/50 dark:border-indigo-900 dark:bg-indigo-950/30">
+        <CardBody className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="flex items-center gap-3">
+            <CalendarRange className="h-5 w-5 text-indigo-600 dark:text-indigo-400" aria-hidden />
+            <div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                {current ? current.label : 'No current period'}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {current
+                  ? `${current.ticketCount} reports filed in this period.`
+                  : 'Add a period and set it as current so new reports are filed correctly.'}
+              </p>
+            </div>
+          </div>
+          <Button onClick={openCreate}>Add period</Button>
+        </CardBody>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <CardHeader
+          title="All periods"
+          description="Each period keeps its own reports, dashboards and exports."
+        />
+        {items.length === 0 ? (
+          <EmptyState
+            title="No periods yet"
+            description="Add the first academic year and semester to start filing reports by period."
+            action={<Button onClick={openCreate}>Add period</Button>}
+          />
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Period</Th>
+                <Th>Dates</Th>
+                <Th>Reports</Th>
+                <Th>Actions</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((period) => (
+                <Tr key={period.id}>
+                  <Td>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-slate-900 dark:text-white">
+                        {period.label}
+                      </span>
+                      {period.isCurrent ? <Badge tone="success">Current</Badge> : null}
+                    </div>
+                  </Td>
+                  <Td className="whitespace-nowrap text-slate-600 dark:text-slate-300">
+                    {formatDate(period.startsAt)} to {formatDate(period.endsAt)}
+                  </Td>
+                  <Td className="tabular-nums text-slate-700 dark:text-slate-200">
+                    {period.ticketCount}
+                  </Td>
+                  <Td>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!period.isCurrent ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={setCurrent.isPending}
+                          onClick={() => activate(period)}
+                        >
+                          Set current
+                        </Button>
+                      ) : null}
+                      <Button size="sm" variant="secondary" onClick={() => openEdit(period)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={period.isCurrent || period.ticketCount > 0}
+                        title={
+                          period.isCurrent
+                            ? 'Set another period as current first'
+                            : period.ticketCount > 0
+                              ? 'Periods with reports cannot be deleted'
+                              : 'Delete this period'
+                        }
+                        onClick={() => setDeleteTarget(period)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? 'Edit academic period' : 'Add academic period'}
+        description="Dates decide the export range. The current period receives every new report."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              loading={createPeriod.isPending || updatePeriod.isPending}
+              disabled={!academicYear || !startsAt || !endsAt || !yearValid || !datesValid}
+              onClick={save}
+            >
+              {editing ? 'Save changes' : 'Add period'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <FormField
+            label="Academic year"
+            htmlFor="period-year"
+            required
+            hint="For example 2026/2027"
+            error={academicYear && !yearValid ? 'Use the format 2026/2027.' : undefined}
+          >
+            <Input
+              id="period-year"
+              value={academicYear}
+              onChange={(event) => setAcademicYear(event.target.value)}
+              placeholder="2026/2027"
+            />
+          </FormField>
+          <FormField label="Semester" htmlFor="period-semester" required>
+            <Select
+              id="period-semester"
+              value={semester}
+              onChange={(event) => setSemester(event.target.value as SemesterTerm)}
+            >
+              {SEMESTER_TERMS.map((term) => (
+                <option key={term} value={term}>
+                  {SEMESTER_LABELS[term]}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Starts" htmlFor="period-start" required>
+              <Input
+                id="period-start"
+                type="date"
+                value={startsAt}
+                max={endsAt || undefined}
+                onChange={(event) => setStartsAt(event.target.value)}
+              />
+            </FormField>
+            <FormField
+              label="Ends"
+              htmlFor="period-end"
+              required
+              error={startsAt && endsAt && !datesValid ? 'Choose a date after the start.' : undefined}
+            >
+              <Input
+                id="period-end"
+                type="date"
+                value={endsAt}
+                min={startsAt || undefined}
+                onChange={(event) => setEndsAt(event.target.value)}
+              />
+            </FormField>
+          </div>
+          <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+              checked={isCurrent}
+              onChange={(event) => setIsCurrent(event.target.checked)}
+            />
+            <span>Make this the current period for every user.</span>
+          </label>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete this period?"
+        description="This cannot be undone."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={deletePeriod.isPending}
+              onClick={() => deleteTarget && remove(deleteTarget)}
+            >
+              Delete period
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          {deleteTarget?.label} has no reports attached, so it can be removed safely.
+        </p>
+      </Dialog>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Exports                                                                    */
 /* -------------------------------------------------------------------------- */
 
 export function AdminReportsPage() {
   const toast = useToast();
   const departments = useDepartments();
+  const periods = useAcademicPeriods();
   const [type, setType] = useState<'tickets' | 'analytics' | 'notifications' | 'audit'>('tickets');
   const [format, setFormat] = useState<'csv' | 'json'>('csv');
   const [departmentId, setDepartmentId] = useState('');
+  const [periodId, setPeriodId] = useState('');
 
   const runExport = async () => {
     try {
       const params = new URLSearchParams({ type, format });
       if (departmentId) params.set('departmentId', departmentId);
+      if (periodId) params.set('academicPeriodId', periodId);
       const payload = await api.get<{ csv?: string; rows?: Record<string, unknown>[] }>(
         `/api/v1/admin/reports?${params.toString()}`,
       );
@@ -1912,6 +2290,25 @@ export function AdminReportsPage() {
               {(departments.data?.items ?? []).map((department) => (
                 <option key={department.id} value={department.id}>
                   {department.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField
+            label="Academic period"
+            htmlFor="export-period"
+            hint="A period export covers its full date range."
+          >
+            <Select
+              id="export-period"
+              value={periodId}
+              onChange={(event) => setPeriodId(event.target.value)}
+            >
+              <option value="">All periods</option>
+              {(periods.data?.items ?? []).map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.label}
+                  {period.isCurrent ? ' (current)' : ''}
                 </option>
               ))}
             </Select>

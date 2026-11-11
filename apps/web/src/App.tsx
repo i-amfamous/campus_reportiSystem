@@ -29,6 +29,7 @@ import {
   StaffQueuePage,
 } from './features/staff/StaffPages';
 import {
+  AdminAcademicPeriodsPage,
   AdminAuditPage,
   AdminCategoriesPage,
   AdminDashboardPage,
@@ -100,6 +101,10 @@ export default function App() {
             <Route path="/admin/audit" element={<AdminAuditPage />} />
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          </Route>
+
+          <Route element={<PermissionRoute permission="settings:institution" />}>
+            <Route path="/admin/academic" element={<AdminAcademicPeriodsPage />} />
           </Route>
 
           <Route element={<PermissionRoute permission="system:backup" />}>

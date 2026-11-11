@@ -50,6 +50,12 @@ enum TicketSource {
   STAFF
 }
 
+enum SemesterTerm {
+  FIRST
+  SECOND
+  SUMMER
+}
+
 enum MessageVisibility {
   PUBLIC
   INTERNAL
@@ -390,6 +396,27 @@ model Category {
 }
 
 // ---------------------------------------------------------------------------
+// Academic periods
+// ---------------------------------------------------------------------------
+
+model AcademicPeriod {
+  id           String       @id @default(uuid()) @db.Uuid
+  academicYear String       @db.VarChar(16)
+  semester     SemesterTerm
+  startsAt     DateTime
+  endsAt       DateTime
+  isCurrent    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tickets Ticket[]
+
+  @@unique([academicYear, semester])
+  @@index([isCurrent])
+  @@map("academic_periods")
+}
+
+// ---------------------------------------------------------------------------
 // Tickets
 // ---------------------------------------------------------------------------
 
@@ -405,6 +432,7 @@ model Ticket {
   status         TicketStatus   @default(SUBMITTED)
   priority       TicketPriority @default(NORMAL)
   source         TicketSource   @default(STUDENT)
+  academicPeriodId String?      @db.Uuid
 
   courseCode        String? @db.VarChar(32)
   courseTitle       String? @db.VarChar(160)
@@ -449,6 +477,7 @@ model Ticket {
   assignedTo   User?     @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   category     Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  academicPeriod AcademicPeriod? @relation(fields: [academicPeriodId], references: [id], onDelete: SetNull)
 
   messages    TicketMessage[]
   attachments TicketAttachment[]
@@ -465,6 +494,7 @@ model Ticket {
   @@index([nextReminderAt])
   @@index([createdAt])
   @@index([categoryId])
+  @@index([academicPeriodId])
   @@map("tickets")
 }
 

@@ -469,16 +469,11 @@ export function HomePage() {
                   'Close the loop with feedback, or reopen the report if the problem returns. The record stays complete.',
                 icon: CheckCircle2,
               },
-            ].map((step, index) => (
+            ].map((step) => (
               <li key={step.title} className="bg-white p-7 dark:bg-slate-900">
-                <div className="flex items-center justify-between">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-brand-500">
-                    <step.icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="text-sm font-semibold tabular-nums text-slate-500 dark:text-slate-400">
-                    0{index + 1}
-                  </span>
-                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-brand-500">
+                  <step.icon className="h-4 w-4" aria-hidden />
+                </span>
                 <h3 className="mt-6 text-base font-semibold tracking-[-0.01em] text-slate-950 dark:text-white">
                   {step.title}
                 </h3>

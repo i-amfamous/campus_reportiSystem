@@ -159,13 +159,24 @@ export function MarketingLayout() {
         <Outlet />
       </main>
 
-      <footer className="relative isolate overflow-hidden border-t border-slate-900/5 bg-[#fafafa] dark:border-white/5 dark:bg-slate-950">
+      <footer className="relative isolate overflow-hidden border-t border-slate-900/5 bg-[#f7f8fb] dark:border-white/5 dark:bg-slate-950">
+        {/* Soft brand aurora. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-40 -z-10 h-80 bg-[radial-gradient(50rem_22rem_at_18%_100%,rgba(64,123,217,0.16),transparent_70%),radial-gradient(40rem_18rem_at_78%_100%,rgba(255,190,140,0.18),transparent_70%),radial-gradient(34rem_16rem_at_52%_100%,rgba(45,212,191,0.14),transparent_70%)] dark:bg-[radial-gradient(45rem_20rem_at_20%_100%,rgba(64,123,217,0.18),transparent_72%)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(46rem_24rem_at_8%_0%,rgba(64,123,217,0.14),transparent_70%),radial-gradient(34rem_20rem_at_72%_-6%,rgba(255,190,140,0.22),transparent_70%),radial-gradient(30rem_18rem_at_96%_18%,rgba(45,212,191,0.14),transparent_72%)] dark:bg-[radial-gradient(48rem_26rem_at_10%_0%,rgba(64,123,217,0.24),transparent_72%),radial-gradient(36rem_20rem_at_78%_0%,rgba(20,184,166,0.14),transparent_72%)]"
+        />
+        {/* Faint blueprint grid, fading toward the base. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.05)_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(70%_85%_at_50%_0%,black,transparent)] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.055)_1px,transparent_1px)]"
+        />
+        {/* Top hairline accent. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(64,123,217,0.55),rgba(45,212,191,0.45),transparent)]"
         />
 
-        <div className="mx-auto grid max-w-[1140px] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
+        <div className="relative mx-auto grid max-w-[1140px] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-600 text-white">
@@ -220,7 +231,19 @@ export function MarketingLayout() {
           </div>
         </div>
 
-        <div className="border-t border-slate-900/5 dark:border-white/5">
+        {/* Oversized wordmark, clipped by the footer edge. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -bottom-4 -z-10 select-none overflow-hidden"
+        >
+          <div className="mx-auto flex max-w-[1140px] justify-center px-5 sm:px-8">
+            <span className="whitespace-nowrap bg-gradient-to-b from-slate-900/[0.09] via-slate-900/[0.045] to-transparent bg-clip-text text-[clamp(3.25rem,11vw,8.5rem)] font-semibold leading-none tracking-[-0.055em] text-transparent dark:from-white/[0.09] dark:via-white/[0.045]">
+              Campus Resolve
+            </span>
+          </div>
+        </div>
+
+        <div className="relative border-t border-slate-900/5 bg-white/40 backdrop-blur-sm dark:border-white/5 dark:bg-slate-950/40">
           <div className="mx-auto flex max-w-[1140px] flex-col gap-2 px-5 py-5 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 dark:text-slate-400">
             <p>© {new Date().getFullYear()} Campus Resolve. Built by Famous Tech.</p>
             <p>One channel. One owner. One record.</p>

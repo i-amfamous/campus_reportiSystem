@@ -13,7 +13,7 @@
  *     `ON DELETE RESTRICT` / `SET NULL` and dropping it would either fail or
  *     silently destroy the history the institution is required to keep;
  *   - sessions, tokens, role grants, department memberships and notifications
- *     are deleted outright — they are pure personal data with no record value;
+ *     are deleted outright because they are pure personal data with no record value;
  *   - the `audit_logs` rows are never touched, so "who did what" survives the
  *     deletion and the deletion itself is audited.
  */

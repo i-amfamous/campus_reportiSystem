@@ -71,6 +71,7 @@ function ticketFixture(visibility: 'PUBLIC' | 'INTERNAL'): TicketDetail {
     courseCode: 'CS201',
     courseTitle: 'Data Structures',
     semester: '2025/2026',
+    academicPeriod: null,
     assessmentReference: null,
     transactionReference: null,
     preferredContactMethod: 'EMAIL',

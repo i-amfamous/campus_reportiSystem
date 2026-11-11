@@ -312,7 +312,7 @@ export function RegisterPage() {
             label="Student ID"
             htmlFor="studentId"
             error={form.formState.errors.studentId?.message}
-            hint="Optional — your student ID, if you have one."
+            hint="Optional. Your student ID, if you have one."
           >
             <Input id="studentId" {...form.register('studentId')} />
           </FormField>
@@ -811,6 +811,53 @@ function initialsOf(name: string | undefined): string {
     .join('');
 }
 
+// A small set of deep, brand-adjacent pairs keeps every avatar personal but on-brand.
+const AVATAR_GRADIENTS = [
+  ['#1f3a6e', '#2f63c0'],
+  ['#123f5c', '#0f8fb5'],
+  ['#134e4a', '#0f9d8c'],
+  ['#2b2f6b', '#5b6de0'],
+  ['#243b6b', '#407bd9'],
+  ['#3a2f66', '#7c5cd6'],
+] as const;
+
+function avatarStyle(seed: string | undefined): { ring: string; face: string } {
+  const value = seed ?? 'campus-resolve';
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) % 997;
+  }
+  const [start, end] = AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length]!;
+  return {
+    ring: `linear-gradient(150deg, rgba(255,255,255,0.85), ${end} 45%, #f3b489)`,
+    face: `radial-gradient(circle at 30% 16%, rgba(255,255,255,0.34), rgba(255,255,255,0) 48%), linear-gradient(150deg, ${start}, ${end})`,
+  };
+}
+
+function ProfileAvatar({ name, seed }: { name: string | undefined; seed: string | undefined }) {
+  const style = avatarStyle(seed);
+  return (
+    <span
+      className="relative inline-flex h-20 w-20 shrink-0 rounded-full p-[2.5px] shadow-[0_16px_34px_-16px_rgba(15,35,75,0.75)] ring-1 ring-slate-900/5 dark:ring-white/10 sm:h-24 sm:w-24"
+      style={{ backgroundImage: style.ring }}
+      aria-hidden
+    >
+      <span
+        className="flex h-full w-full items-center justify-center rounded-full text-[1.55rem] font-semibold tracking-[-0.04em] text-white sm:text-[1.85rem]"
+        style={{
+          backgroundImage: style.face,
+          boxShadow:
+            'inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -14px 24px rgba(4,12,30,0.35)',
+        }}
+      >
+        <span className="[text-shadow:0_1px_2px_rgba(5,15,35,0.5)]">
+          {initialsOf(name)}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 function readableDate(value: string | null | undefined): string {
   if (!value) return 'Not recorded';
   const date = new Date(value);
@@ -955,9 +1002,8 @@ export function ProfilePage() {
     Boolean(auth.user?.phone),
     Boolean(auth.user?.preferredContactMethod),
   ];
-  const completion = Math.round(
-    (completionChecks.filter(Boolean).length / completionChecks.length) * 100,
-  );
+  const completedChecks = completionChecks.filter(Boolean).length;
+  const completion = Math.round((completedChecks / completionChecks.length) * 100);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -988,12 +1034,10 @@ export function ProfilePage() {
           />
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <span
-                className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-teal-500 text-2xl font-semibold text-white shadow-lg shadow-brand-900/20"
-                aria-hidden
-              >
-                {initialsOf(auth.user?.fullName)}
-              </span>
+              <ProfileAvatar
+                name={auth.user?.fullName}
+                seed={auth.user?.id ?? auth.user?.email}
+              />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="truncate text-xl font-semibold tracking-[-0.02em] text-slate-950 dark:text-white">
@@ -1036,21 +1080,34 @@ export function ProfilePage() {
             </div>
 
             <div className="w-full max-w-xs rounded-xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/70">
-              <div className="flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+              <div className="flex items-center justify-between gap-3 text-xs font-medium text-slate-600 dark:text-slate-300">
                 <span>Profile completeness</span>
-                <span className="tabular-nums">{completion}%</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-brand-700 ring-1 ring-inset ring-brand-600/15 dark:bg-brand-950/60 dark:text-brand-300 dark:ring-brand-400/20">
+                  {completion === 100 ? <Check className="h-3 w-3" aria-hidden /> : null}
+                  {completion}%
+                </span>
               </div>
               <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
-                role="img"
-                aria-label={`Profile completeness ${completion} percent`}
+                className="mt-3 flex items-center gap-1.5"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={completion}
+                aria-label="Profile completeness"
               >
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-brand-500 to-teal-400"
-                  style={{ width: `${completion}%` }}
-                />
+                {completionChecks.map((done, index) => (
+                  <span
+                    key={index}
+                    className={cn(
+                      'h-2.5 flex-1 rounded-full transition-colors duration-500',
+                      done
+                        ? 'bg-brand-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_2px_8px_-2px_rgba(47,99,192,0.55)]'
+                        : 'bg-slate-200/80 ring-1 ring-inset ring-slate-900/[0.04] dark:bg-slate-800 dark:ring-white/[0.06]',
+                    )}
+                  />
+                ))}
               </div>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400">
                 {completion === 100
                   ? 'Everything we need is on file.'
                   : 'Add a phone number and contact preference to finish.'}

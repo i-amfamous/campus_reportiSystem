@@ -883,6 +883,7 @@ async function seedCompletedReports(
   departmentsById: Map<string, { code: string | null }>,
   year: number,
   counter: { next: number },
+  academicPeriodId: string | null,
 ) {
   const now = new Date();
   let created = 0;
@@ -1014,6 +1015,7 @@ async function seedCompletedReports(
         status: closed ? 'CLOSED' : 'RESOLVED',
         priority: scenario.priority,
         source: 'STUDENT',
+        academicPeriodId,
         preferredContactMethod: 'EMAIL',
         studentEmail: studentEmail(index % STUDENT_NAMES.length),
         createdAt,
@@ -1070,6 +1072,7 @@ async function seedOpenReports(
   departmentsById: Map<string, { code: string | null }>,
   year: number,
   counter: { next: number },
+  academicPeriodId: string | null,
 ) {
   const now = new Date();
   let created = 0;
@@ -1219,6 +1222,7 @@ async function seedOpenReports(
         status,
         priority: scenario.priority,
         source: 'STUDENT',
+        academicPeriodId,
         preferredContactMethod: 'EMAIL',
         studentEmail: studentEmail((index + DONE_SCENARIOS.length) % STUDENT_NAMES.length),
         createdAt,
@@ -1298,6 +1302,11 @@ async function main(): Promise<void> {
   const year = new Date().getUTCFullYear();
   const startingSequence = 1000;
   const counter = { next: startingSequence };
+  const currentPeriod = await prisma.academicPeriod.findFirst({
+    where: { isCurrent: true },
+    select: { id: true },
+  });
+  const academicPeriodId = currentPeriod?.id ?? null;
 
   const completed = await seedCompletedReports(
     students,
@@ -1306,6 +1315,7 @@ async function main(): Promise<void> {
     departmentsById,
     year,
     counter,
+    academicPeriodId,
   );
   const open = await seedOpenReports(
     students,
@@ -1314,6 +1324,7 @@ async function main(): Promise<void> {
     departmentsById,
     year,
     counter,
+    academicPeriodId,
   );
 
   // Move the reference counter past the demo range so new reports never clash.

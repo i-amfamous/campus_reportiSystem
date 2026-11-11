@@ -17,6 +17,7 @@ import {
   UserRound,
   ClipboardList,
   DatabaseBackup,
+  CalendarRange,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { ThemeToggle } from '../lib/theme';
@@ -65,6 +66,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Staff & users',
     icon: Users,
     visible: (auth) => auth.hasPermission('user:manage'),
+  },
+  {
+    to: '/admin/academic',
+    label: 'Academic periods',
+    icon: CalendarRange,
+    visible: (auth) => auth.hasPermission('settings:institution'),
   },
   {
     to: '/admin/audit',

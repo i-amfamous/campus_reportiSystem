@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   Area,
   AreaChart,
@@ -18,7 +18,7 @@ import { PRIORITY_LABELS, type TicketPriority, type TicketStatus } from '@campus
 import { Card, CardBody, CardHeader, EmptyState, Button, Input, Select, cn } from '../../components/ui';
 import { useTheme } from '../../lib/theme';
 import { useReportTrend } from '../tickets/api';
-import type { RoleDashboard, SystemDashboard } from '../../types';
+import type { AcademicPeriod, RoleDashboard, SystemDashboard } from '../../types';
 
 /* -------------------------------------------------------------------------- */
 /* Palette and theme                                                          */
@@ -137,12 +137,30 @@ const TREND_PRESETS = [
 /* Report volume over time                                                    */
 /* -------------------------------------------------------------------------- */
 
-export function ReportTrendChart({ trend: fallback }: { trend: SystemDashboard['trend'] }) {
+export function ReportTrendChart({
+  trend: fallback,
+  academicPeriodId,
+  period,
+}: {
+  trend: SystemDashboard['trend'];
+  academicPeriodId?: string | undefined;
+  period?: AcademicPeriod | null | undefined;
+}) {
   const chart = useChartTheme();
   const [preset, setPreset] = useState<string>('14d');
   const [from, setFrom] = useState(() => toDateTimeInput(new Date(Date.now() - 13 * 86_400_000)));
   const [to, setTo] = useState(() => toDateTimeInput(new Date()));
   const [granularity, setGranularity] = useState<TrendGranularity>('day');
+
+  // A chosen period drives the range; the dates stay editable.
+  useEffect(() => {
+    if (!period) return;
+    setFrom(toDateTimeInput(new Date(period.startsAt)));
+    setTo(toDateTimeInput(new Date(period.endsAt)));
+    const days = (new Date(period.endsAt).getTime() - new Date(period.startsAt).getTime()) / 86_400_000;
+    setGranularity(days <= 2 ? 'hour' : 'day');
+    setPreset('period');
+  }, [period]);
 
   const fromTime = Date.parse(from);
   const toTime = Date.parse(to);
@@ -152,6 +170,7 @@ export function ReportTrendChart({ trend: fallback }: { trend: SystemDashboard['
     from: rangeValid ? new Date(fromTime).toISOString() : '',
     to: rangeValid ? new Date(toTime).toISOString() : '',
     granularity,
+    academicPeriodId,
   });
 
   const trend = rangeValid ? (trendQuery.data?.trend ?? fallback) : fallback;
@@ -229,7 +248,11 @@ export function ReportTrendChart({ trend: fallback }: { trend: SystemDashboard['
   return (
     <ChartShell
       title="Report volume"
-      description="Reports created and resolved for the selected range."
+      description={
+        period
+          ? `Reports created and resolved in ${period.label}.`
+          : 'Reports created and resolved for the selected range.'
+      }
       height={260}
       toolbar={toolbar}
     >
@@ -525,12 +548,24 @@ export function DepartmentWorkloadChart({
  * The chart cards live in their own module so the charting library is only
  * downloaded when an administrator opens the operations dashboard.
  */
-export function DashboardCharts({ dashboard }: { dashboard: SystemDashboard }) {
+export function DashboardCharts({
+  dashboard,
+  academicPeriodId,
+  period,
+}: {
+  dashboard: SystemDashboard;
+  academicPeriodId?: string | undefined;
+  period?: AcademicPeriod | null | undefined;
+}) {
   return (
     <>
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <ReportTrendChart trend={dashboard.trend} />
+          <ReportTrendChart
+            trend={dashboard.trend}
+            academicPeriodId={academicPeriodId}
+            period={period}
+          />
         </div>
         <StatusMixChart data={dashboard.statusBreakdown} total={dashboard.totals.total} />
       </div>

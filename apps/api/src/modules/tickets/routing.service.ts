@@ -15,7 +15,7 @@ export interface RoutingDecision {
  * Rules (PRD §6.2):
  *  * A category bound to a department wins over a free-form choice, so the
  *    report reaches the correct office first time.
- *  * A student who does not know the officer routes to the department queue —
+ *  * A student who does not know the officer routes to the department queue, so
  *    they are never forced to pick a person.
  *  * A department without active officers is routed to a fallback queue; the
  *    report is never discarded.

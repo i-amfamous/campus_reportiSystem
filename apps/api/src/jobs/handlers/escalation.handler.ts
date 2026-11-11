@@ -177,7 +177,7 @@ export async function handleFirstResponseJob(payload: { ticketId: string }): Pro
       departmentName: ticket.department.name,
       submittedAt: ticket.createdAt.toISOString(),
       assignedOfficerName: ticket.assignedTo?.fullName,
-      nextAction: 'Respond to the student — the first-response target has been exceeded.',
+      nextAction: 'Respond to the student. The first-response target has been exceeded.',
     };
 
     if (ticket.assignedToId) {

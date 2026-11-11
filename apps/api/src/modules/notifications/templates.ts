@@ -49,7 +49,7 @@ export function escapeHtml(value: string): string {
 }
 
 function formatDate(value: Date | undefined): string {
-  if (!value) return '—';
+  if (!value) return 'Not set';
   return value.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 }
 
@@ -127,8 +127,8 @@ function ticketSummaryHtml(ctx: TemplateContext): string {
   if (!ctx.ticket) return '';
   const rows: Array<[string, string]> = [
     ['Ticket', ctx.ticket.referenceNumber],
-    ['Category', ctx.ticket.categoryName ?? '—'],
-    ['Department', ctx.ticket.departmentName ?? '—'],
+    ['Category', ctx.ticket.categoryName ?? 'Not set'],
+    ['Department', ctx.ticket.departmentName ?? 'Not set'],
     ['Submitted', formatDate(ctx.ticket.submittedAt)],
     ['Current status', STATUS_LABELS[ctx.ticket.status]],
   ];

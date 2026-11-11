@@ -26,6 +26,7 @@ import { useAuth } from '../../lib/auth';
 import { formatDuration, formatDateTime, formatMinutesAsDuration, relativeTime } from '../../lib/format';
 import {
   errorMessage,
+  useAcademicPeriods,
   useDepartmentAnalytics,
   useDepartmentWorkload,
   useDepartments,
@@ -85,6 +86,7 @@ export function StaffDashboardPage() {
               Staff overview
             </h1>
             <Badge tone={data.role === 'DEPARTMENT_HEAD' ? 'info' : 'default'}>{roleLabel}</Badge>
+            {data.period ? <Badge>{data.period.label}</Badge> : null}
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {departmentNames.length > 0
@@ -332,6 +334,7 @@ export function StaffQueuePage() {
   const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const departments = useDepartments();
+  const periods = useAcademicPeriods();
 
   // Filters live in the URL so dashboard cards can open a pre-filtered view
   // and the browser back button restores the previous view.
@@ -340,6 +343,7 @@ export function StaffQueuePage() {
   const scopeParam = searchParams.get('scope');
   const scope: QueueScope = isQueueScope(scopeParam) ? scopeParam : 'all';
   const departmentId = searchParams.get('departmentId') ?? '';
+  const academicPeriodId = searchParams.get('academicPeriodId') ?? '';
   const pageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
@@ -359,6 +363,7 @@ export function StaffQueuePage() {
     status: status || undefined,
     search: search || undefined,
     departmentId: departmentId || undefined,
+    academicPeriodId: academicPeriodId || undefined,
     assignedToId: scope === 'mine' ? auth.user?.id : undefined,
     unassigned: scope === 'unassigned' ? true : undefined,
     overdue: scope === 'overdue' ? true : undefined,
@@ -418,6 +423,21 @@ export function StaffQueuePage() {
               {QUEUE_SCOPES.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Academic period" htmlFor="queue-period">
+            <Select
+              id="queue-period"
+              value={academicPeriodId}
+              onChange={(event) => updateQuery({ academicPeriodId: event.target.value })}
+            >
+              <option value="">All periods</option>
+              {(periods.data?.items ?? []).map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.label}
+                  {period.isCurrent ? ' (current)' : ''}
                 </option>
               ))}
             </Select>
@@ -482,7 +502,7 @@ export function StaffQueuePage() {
                         </Badge>
                       ) : null}
                     </Td>
-                    <Td className="text-sm">{ticket.category?.name ?? '—'}</Td>
+                    <Td className="text-sm">{ticket.category?.name ?? 'Not set'}</Td>
                     <Td className="text-sm">{ticket.assignedTo?.fullName ?? 'Unassigned'}</Td>
                     <Td>
                       <PriorityBadge priority={ticket.priority} />
@@ -571,7 +591,7 @@ export function DepartmentMetricsPage() {
           label="Satisfaction"
           value={
             data.satisfactionAverage === null
-              ? '—'
+              ? 'Not set'
               : `${data.satisfactionAverage.toFixed(1)} / 5 (${data.satisfactionCount})`
           }
           tone="success"
@@ -636,5 +656,5 @@ export function staffStatusLabel(status: TicketStatus): string {
 }
 
 export function staffTimestamp(value: string | null): string {
-  return value ? formatDateTime(value) : '—';
+  return value ? formatDateTime(value) : 'Not set';
 }

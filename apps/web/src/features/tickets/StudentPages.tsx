@@ -35,6 +35,7 @@ import { useAuth } from '../../lib/auth';
 import { formatDateTime, relativeTime } from '../../lib/format';
 import {
   errorMessage,
+  useAcademicPeriods,
   useCategories,
   useCreateTicket,
   useDepartments,
@@ -99,6 +100,7 @@ export function StudentDashboardPage() {
               Welcome back{auth.user?.fullName ? `, ${auth.user.fullName.split(' ')[0]}` : ''}
             </h1>
             <Badge tone="info">Student</Badge>
+            {data.period ? <Badge>{data.period.label}</Badge> : null}
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {auth.user?.studentId ? `Student ID ${auth.user.studentId}. ` : ''}
@@ -394,7 +396,7 @@ export function TicketListPage() {
                       </Link>
                       <p className="text-xs text-slate-500">{ticket.category?.name}</p>
                     </Td>
-                    <Td className="text-sm">{ticket.department?.name ?? '—'}</Td>
+                    <Td className="text-sm">{ticket.department?.name ?? 'Not set'}</Td>
                     <Td>
                       <PriorityBadge priority={ticket.priority} />
                     </Td>
@@ -428,7 +430,9 @@ export function NewTicketPage() {
   const navigate = useNavigate();
   const departments = useDepartments();
   const categories = useCategories();
+  const periods = useAcademicPeriods();
   const createTicket = useCreateTicket();
+  const currentPeriod = periods.data?.current ?? null;
   const [submittedReference, setSubmittedReference] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -513,6 +517,12 @@ export function NewTicketPage() {
         <p className="text-sm text-slate-500">
           Tell us what happened and we will route your report to the right department.
         </p>
+        {currentPeriod ? (
+          <p className="mt-2 text-xs text-slate-500">
+            Filing under{' '}
+            <span className="font-medium text-slate-700">{currentPeriod.label}</span>.
+          </p>
+        ) : null}
       </header>
 
       {serverError ? (
@@ -680,7 +690,7 @@ export function NewTicketPage() {
               <FormField
                 label="Payment transaction reference"
                 htmlFor="transactionReference"
-                hint="Optional — use the receipt reference, never your PIN or full card details."
+                hint="Optional. Use the receipt reference, never your PIN or full card details."
               >
                 <Input id="transactionReference" {...form.register('transactionReference')} />
               </FormField>

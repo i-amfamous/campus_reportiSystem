@@ -189,7 +189,7 @@ export async function deliverNotification(notificationId: string): Promise<Deliv
   const attemptNumber = notification.attemptCount + 1;
 
   // The rendered message is stored before the attempt so that a delivery that
-  // fails is still readable in the outbox — the operator can see exactly what
+  // fails is still readable in the outbox, so the operator can see exactly what
   // was going to be delivered and why it did not arrive.
   await prisma.notification.update({
     where: { id: notification.id },
@@ -284,8 +284,8 @@ export async function deliverNotification(notificationId: string): Promise<Deliv
 /**
  * Re-attempts the delivery of a notification.
  *
- * Used when the mail provider was misconfigured — a sending domain that is
- * not verified yet, for example — so the message can be delivered again once
+ * Used when the mail provider was misconfigured, for example a sending domain that is
+ * not verified yet, so the message can be delivered again once
  * the configuration is fixed.
  */
 export async function resendNotification(notificationId: string): Promise<DeliveryResult> {

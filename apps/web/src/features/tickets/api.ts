@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api';
 import type {
+  AcademicPeriod,
   AdminUser,
   AuditEntry,
   Category,
@@ -20,6 +21,7 @@ export interface TicketFilters {
   status?: string;
   categoryId?: string;
   departmentId?: string;
+  academicPeriodId?: string;
   assignedToId?: string;
   priority?: string;
   search?: string;
@@ -232,10 +234,17 @@ export function useTicketMutations(ticketId: string | undefined) {
 /* Administration                                                             */
 /* -------------------------------------------------------------------------- */
 
-export function useSystemDashboard() {
+export function useSystemDashboard(academicPeriodId?: string) {
   return useQuery({
-    queryKey: ['admin', 'dashboard'],
-    queryFn: () => api.get<{ dashboard: SystemDashboard }>('/api/v1/admin/dashboard'),
+    queryKey: ['admin', 'dashboard', academicPeriodId ?? 'all'],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (academicPeriodId) params.set('academicPeriodId', academicPeriodId);
+      const query = params.toString();
+      return api.get<{ dashboard: SystemDashboard }>(
+        `/api/v1/admin/dashboard${query ? `?${query}` : ''}`,
+      );
+    },
   });
 }
 
@@ -243,6 +252,7 @@ export interface ReportTrendFilters {
   from: string;
   to: string;
   granularity: 'hour' | 'day';
+  academicPeriodId?: string;
 }
 
 /** Created/resolved counts for an explicit range, used by the trend chart. */
@@ -251,12 +261,59 @@ export function useReportTrend(filters: ReportTrendFilters) {
   params.set('from', filters.from);
   params.set('to', filters.to);
   params.set('granularity', filters.granularity);
+  if (filters.academicPeriodId) params.set('academicPeriodId', filters.academicPeriodId);
   return useQuery({
     queryKey: ['admin', 'dashboard', 'trend', filters],
     queryFn: () => api.get<ReportTrend>(`/api/v1/admin/dashboard/trend?${params.toString()}`),
     enabled: Boolean(filters.from && filters.to),
     placeholderData: (previous) => previous,
   });
+}
+
+export function useAcademicPeriods() {
+  return useQuery({
+    queryKey: ['academic-periods'],
+    queryFn: () =>
+      api.get<{ items: AcademicPeriod[]; current: AcademicPeriod | null }>(
+        '/api/v1/academic-periods',
+      ),
+    staleTime: 60_000,
+  });
+}
+
+function useAcademicPeriodMutation<TInput>(request: (input: TInput) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['academic-periods'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+    },
+  });
+}
+
+export function useCreateAcademicPeriod() {
+  return useAcademicPeriodMutation((body: Record<string, unknown>) =>
+    api.post('/api/v1/academic-periods', body),
+  );
+}
+
+export function useUpdateAcademicPeriod() {
+  return useAcademicPeriodMutation((input: { id: string; body: Record<string, unknown> }) =>
+    api.patch(`/api/v1/academic-periods/${input.id}`, input.body),
+  );
+}
+
+export function useSetCurrentAcademicPeriod() {
+  return useAcademicPeriodMutation((id: string) =>
+    api.post(`/api/v1/academic-periods/${id}/current`, {}),
+  );
+}
+
+export function useDeleteAcademicPeriod() {
+  return useAcademicPeriodMutation((id: string) =>
+    api.delete(`/api/v1/academic-periods/${id}`),
+  );
 }
 
 export interface UserFilters {

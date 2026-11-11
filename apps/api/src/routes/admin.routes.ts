@@ -13,6 +13,7 @@ import {
   reportTrendQuerySchema,
   serviceTargetSchema,
   settingsUpdateSchema,
+  systemDashboardQuerySchema,
   updateUserRoleSchema,
   updateUserStatusSchema,
 } from '@campus-resolve/shared';
@@ -36,12 +37,18 @@ const restoreUpload = multer({
 
 adminRouter.use(requireAuth);
 
-adminRouter.get('/dashboard', requirePermission('analytics:global'), async (req, res) => {
-  const dashboard = await departmentService.getSystemDashboard(req.auth!, {
-    from: req.query.from ? new Date(String(req.query.from)) : undefined,
-  });
-  res.json({ dashboard });
-});
+adminRouter.get(
+  '/dashboard',
+  requirePermission('analytics:global'),
+  validate(systemDashboardQuerySchema, 'query'),
+  async (req, res) => {
+    const dashboard = await departmentService.getSystemDashboard(
+      req.auth!,
+      req.query as { from?: Date; academicPeriodId?: string },
+    );
+    res.json({ dashboard });
+  },
+);
 
 adminRouter.get(
   '/dashboard/trend',
@@ -128,7 +135,7 @@ adminRouter.post(
  * Danger Zone (administrator): erase somebody else's account.
  *
  * The account's personal data is removed and the session is ended, but the
- * tickets, replies and audit trail are kept — deleting a person must not
+ * tickets, replies and audit trail are kept, so deleting a person must not
  * delete the institutional record of what they reported.
  */
 adminRouter.delete(
@@ -225,6 +232,7 @@ adminRouter.get('/reports', requirePermission('export:create'), async (req, res)
     from: query.from,
     to: query.to,
     departmentId: query.departmentId,
+    academicPeriodId: query.academicPeriodId,
   });
   res.json(result);
 });

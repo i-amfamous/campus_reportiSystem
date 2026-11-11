@@ -3,9 +3,11 @@ import {
   STATUS_LABELS,
   PRIORITY_LABELS,
   INACTIVE_STATUSES,
+  academicPeriodLabel,
   canTransition,
   formatReference,
   isInactiveStatus,
+  type SemesterTerm,
   type TicketPriority,
   type TicketStatus,
 } from '@campus-resolve/shared';
@@ -193,6 +195,10 @@ export async function createTicket(auth: AuthContext, input: CreateTicketInput):
 
   const priority = input.priority ?? category?.defaultPriority ?? 'NORMAL';
   const status: TicketStatus = routing.assignedToId ? 'ASSIGNED' : 'AWAITING_ASSIGNMENT';
+  const currentPeriod = await prisma.academicPeriod.findFirst({
+    where: { isCurrent: true },
+    select: { id: true },
+  });
   const serviceTarget = await getServiceTarget(routing.departmentId);
   const deadlines = routing.assignedToId
     ? await computeDeadlines(routing.departmentId, now)
@@ -213,6 +219,7 @@ export async function createTicket(auth: AuthContext, input: CreateTicketInput):
         status,
         priority,
         source: routing.source,
+        academicPeriodId: currentPeriod?.id ?? null,
         courseCode: input.courseCode ?? null,
         courseTitle: input.courseTitle ?? null,
         semester: input.semester ?? null,
@@ -349,6 +356,14 @@ const OPEN_STATUSES: TicketStatus[] = [
 
 export interface RoleDashboard {
   role: 'STUDENT' | 'OFFICER' | 'DEPARTMENT_HEAD' | 'ADMIN';
+  period: {
+    id: string;
+    label: string;
+    academicYear: string;
+    semester: SemesterTerm;
+    startsAt: Date;
+    endsAt: Date;
+  } | null;
   identity: {
     fullName: string;
     roles: string[];
@@ -586,8 +601,25 @@ export async function getRoleDashboard(auth: AuthContext): Promise<RoleDashboard
       }),
   );
 
+  const currentPeriod = await prisma.academicPeriod.findFirst({
+    where: { isCurrent: true },
+  });
+
   return {
     role,
+    period: currentPeriod
+      ? {
+          id: currentPeriod.id,
+          academicYear: currentPeriod.academicYear,
+          semester: currentPeriod.semester as SemesterTerm,
+          label: academicPeriodLabel({
+            academicYear: currentPeriod.academicYear,
+            semester: currentPeriod.semester as SemesterTerm,
+          }),
+          startsAt: currentPeriod.startsAt,
+          endsAt: currentPeriod.endsAt,
+        }
+      : null,
     identity: {
       fullName: auth.fullName,
       roles: auth.roles,
@@ -646,6 +678,7 @@ export interface ListTicketsOptions extends PaginationOptions {
   status?: TicketStatus | TicketStatus[] | undefined;
   categoryId?: string | undefined;
   departmentId?: string | undefined;
+  academicPeriodId?: string | undefined;
   assignedToId?: string | undefined;
   priority?: TicketPriority | TicketPriority[] | undefined;
   search?: string | undefined;
@@ -681,6 +714,7 @@ export async function listTickets(auth: AuthContext, options: ListTicketsOptions
         : {},
       options.categoryId ? { categoryId: options.categoryId } : {},
       options.departmentId ? { departmentId: options.departmentId } : {},
+      options.academicPeriodId ? { academicPeriodId: options.academicPeriodId } : {},
       options.assignedToId ? { assignedToId: options.assignedToId } : {},
       options.unassigned ? { assignedToId: null } : {},
       options.awaitingStudent ? { status: 'AWAITING_STUDENT' } : {},
@@ -803,6 +837,12 @@ export interface TicketDetail {
   courseCode: string | null;
   courseTitle: string | null;
   semester: string | null;
+  academicPeriod: {
+    id: string;
+    academicYear: string;
+    semester: SemesterTerm;
+    label: string;
+  } | null;
   assessmentReference: string | null;
   transactionReference: string | null;
   preferredContactMethod: string | null;
@@ -845,6 +885,7 @@ export async function getTicketForUser(auth: AuthContext, ticketId: string): Pro
       category: { select: { id: true, name: true } },
       department: { select: { id: true, name: true } },
       assignedTo: { select: { id: true, fullName: true } },
+      academicPeriod: { select: { id: true, academicYear: true, semester: true } },
       messages: {
         orderBy: { createdAt: 'asc' },
         include: {
@@ -905,6 +946,16 @@ export async function getTicketForUser(auth: AuthContext, ticketId: string): Pro
     courseCode: ticket.courseCode,
     courseTitle: ticket.courseTitle,
     semester: ticket.semester,
+    academicPeriod: ticket.academicPeriod
+      ? {
+          ...ticket.academicPeriod,
+          semester: ticket.academicPeriod.semester as SemesterTerm,
+          label: academicPeriodLabel({
+            academicYear: ticket.academicPeriod.academicYear,
+            semester: ticket.academicPeriod.semester as SemesterTerm,
+          }),
+        }
+      : null,
     assessmentReference: ticket.assessmentReference,
     transactionReference: ticket.transactionReference,
     preferredContactMethod: ticket.preferredContactMethod,

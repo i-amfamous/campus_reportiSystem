@@ -15,6 +15,7 @@ import { ticketRouter, notificationRouter } from './routes/tickets.routes';
 import { staffRouter } from './routes/staff.routes';
 import { departmentRouter } from './routes/departments.routes';
 import { adminRouter } from './routes/admin.routes';
+import { academicRouter } from './routes/academic.routes';
 
 export function createApp(): Express {
   const config = getConfig();
@@ -78,6 +79,7 @@ export function createApp(): Express {
   api.use('/notifications', notificationRouter);
   api.use('/staff', staffRouter);
   api.use('/departments', departmentRouter);
+  api.use('/academic-periods', academicRouter);
   api.use('/admin', adminRouter);
 
   app.use('/api/v1', api);

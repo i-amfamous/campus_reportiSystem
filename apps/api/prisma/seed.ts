@@ -145,7 +145,7 @@ async function seedDepartmentsAndCategories(): Promise<void> {
 
   for (const department of DEPARTMENTS) {
     const record = await prisma.department.upsert({
-      where: { name: department.name },
+      where: { code: department.code },
       create: {
         name: department.name,
         code: department.code,
@@ -192,6 +192,29 @@ async function seedDepartmentsAndCategories(): Promise<void> {
   }
 }
 
+async function seedAcademicPeriod(): Promise<void> {
+  const existingCurrent = await prisma.academicPeriod.findFirst({ where: { isCurrent: true } });
+  if (existingCurrent) return;
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const firstSemester = now.getUTCMonth() >= 7;
+  const academicYear = firstSemester ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+  const semester = firstSemester ? 'FIRST' : 'SECOND';
+  const startsAt = firstSemester
+    ? new Date(Date.UTC(year, 7, 1))
+    : new Date(Date.UTC(year, 0, 5));
+  const endsAt = firstSemester
+    ? new Date(Date.UTC(year, 11, 31, 23, 59, 59))
+    : new Date(Date.UTC(year, 6, 31, 23, 59, 59));
+
+  await prisma.academicPeriod.upsert({
+    where: { academicYear_semester: { academicYear, semester } },
+    create: { academicYear, semester, startsAt, endsAt, isCurrent: true },
+    update: { isCurrent: true },
+  });
+}
+
 async function seedSuperAdministrator(): Promise<void> {
   const email = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? 'amoswnganbe@gmail.com').toLowerCase();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD ?? 'ChangeMe!2026';
@@ -224,6 +247,7 @@ async function seedSuperAdministrator(): Promise<void> {
 async function main(): Promise<void> {
   await syncRolesAndPermissions();
   await seedDepartmentsAndCategories();
+  await seedAcademicPeriod();
   await seedSuperAdministrator();
   process.stdout.write(
     'Seed complete: roles, permissions, departments, categories and the super administrator are in place.\n',

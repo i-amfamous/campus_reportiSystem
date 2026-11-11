@@ -15,7 +15,7 @@ export function normalizeEmail(email: string): string {
 
 /**
  * Institutional domain check. The domain list is configuration, never hardcoded
- * here — the caller supplies the permitted domains (PRD §5.1, §6.1).
+ * here; the caller supplies the permitted domains (PRD §5.1, §6.1).
  */
 export function isInstitutionalEmail(email: string, domains: readonly string[]): boolean {
   const normalized = normalizeEmail(email);
@@ -192,6 +192,7 @@ export const ticketListQuerySchema = z.object({
   status: z.union([z.enum(TICKET_STATUSES), z.array(z.enum(TICKET_STATUSES))]).optional(),
   categoryId: z.string().uuid().optional(),
   departmentId: z.string().uuid().optional(),
+  academicPeriodId: z.string().uuid().optional(),
   assignedToId: z.string().uuid().optional(),
   priority: z.union([z.enum(TICKET_PRIORITIES), z.array(z.enum(TICKET_PRIORITIES))]).optional(),
   search: z.string().trim().max(200).optional(),
@@ -368,12 +369,61 @@ export const settingsUpdateSchema = z
   .strict();
 export type SettingsUpdateInput = z.infer<typeof settingsUpdateSchema>;
 
+export const SEMESTER_TERMS = ['FIRST', 'SECOND', 'SUMMER'] as const;
+export type SemesterTerm = (typeof SEMESTER_TERMS)[number];
+
+export const SEMESTER_LABELS: Record<SemesterTerm, string> = {
+  FIRST: 'Semester 1',
+  SECOND: 'Semester 2',
+  SUMMER: 'Summer semester',
+};
+
+/** Stable label used in dashboards, filters and exports. */
+export function academicPeriodLabel(period: {
+  academicYear: string;
+  semester: SemesterTerm;
+}): string {
+  return `${period.academicYear} · ${SEMESTER_LABELS[period.semester]}`;
+}
+
+const academicPeriodFields = z.object({
+  academicYear: z
+    .string()
+    .trim()
+    .regex(/^\d{4}\/\d{4}$/, 'Use the format 2025/2026'),
+  semester: z.enum(SEMESTER_TERMS),
+  startsAt: z.coerce.date(),
+  endsAt: z.coerce.date(),
+  isCurrent: z.boolean().optional(),
+});
+
+export const academicPeriodSchema = academicPeriodFields.superRefine((value, ctx) => {
+  if (value.startsAt >= value.endsAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'The start date must be before the end date.',
+      path: ['startsAt'],
+    });
+  }
+});
+export type AcademicPeriodInput = z.infer<typeof academicPeriodFields>;
+
+export const academicPeriodUpdateSchema = academicPeriodFields.partial();
+export type AcademicPeriodUpdateInput = z.infer<typeof academicPeriodUpdateSchema>;
+
+export const systemDashboardQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  academicPeriodId: z.string().uuid().optional(),
+});
+export type SystemDashboardQuery = z.infer<typeof systemDashboardQuerySchema>;
+
 export const exportQuerySchema = z.object({
   type: z.enum(['tickets', 'analytics', 'notifications', 'audit']),
   format: z.enum(['csv', 'json']).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   departmentId: z.string().uuid().optional(),
+  academicPeriodId: z.string().uuid().optional(),
 });
 export type ExportQuery = z.infer<typeof exportQuerySchema>;
 
@@ -382,6 +432,7 @@ export const reportTrendQuerySchema = z
     from: z.coerce.date().optional(),
     to: z.coerce.date().optional(),
     granularity: z.enum(['hour', 'day']).optional(),
+    academicPeriodId: z.string().uuid().optional(),
   })
   .refine((value) => !value.from || !value.to || value.from <= value.to, {
     message: 'The start of the range must be before the end.',

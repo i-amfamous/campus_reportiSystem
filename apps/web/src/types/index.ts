@@ -67,6 +67,27 @@ export interface TicketHistoryEntry {
   actor: { id: string; fullName: string } | null;
 }
 
+export type SemesterTerm = 'FIRST' | 'SECOND' | 'SUMMER';
+
+export interface AcademicPeriod {
+  id: string;
+  academicYear: string;
+  semester: SemesterTerm;
+  semesterLabel: string;
+  label: string;
+  startsAt: string;
+  endsAt: string;
+  isCurrent: boolean;
+  ticketCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AcademicPeriodSummary = Pick<
+  AcademicPeriod,
+  'id' | 'academicYear' | 'semester' | 'label'
+>;
+
 export interface TicketDetail {
   id: string;
   referenceNumber: string;
@@ -96,6 +117,7 @@ export interface TicketDetail {
   courseCode: string | null;
   courseTitle: string | null;
   semester: string | null;
+  academicPeriod: AcademicPeriodSummary | null;
   assessmentReference: string | null;
   transactionReference: string | null;
   preferredContactMethod: string | null;
@@ -165,6 +187,7 @@ export interface ReportTrend {
 
 export interface RoleDashboard {
   role: 'STUDENT' | 'OFFICER' | 'DEPARTMENT_HEAD' | 'ADMIN';
+  period: (AcademicPeriodSummary & { startsAt: string; endsAt: string }) | null;
   identity: {
     fullName: string;
     roles: string[];

@@ -156,6 +156,9 @@ export function TicketDetailPage() {
                   <Detail label="Course title" value={ticket.courseTitle} />
                 ) : null}
                 {ticket.semester ? <Detail label="Semester" value={ticket.semester} /> : null}
+                {ticket.academicPeriod ? (
+                  <Detail label="Academic period" value={ticket.academicPeriod.label} />
+                ) : null}
                 {ticket.assessmentReference ? (
                   <Detail label="Examination reference" value={ticket.assessmentReference} />
                 ) : null}
@@ -377,7 +380,7 @@ function StaffPanel({
             onChange={(event) => onAssign(event.target.value || null)}
             disabled={closed}
           >
-            <option value="">Unassigned — return to the department queue</option>
+            <option value="">Unassigned: return to the department queue</option>
             {officers.map((officer) => (
               <option key={officer.id} value={officer.id}>
                 {officer.fullName}
@@ -699,7 +702,7 @@ export function MessageBubble({
       >
         {internal ? (
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide">
-            Internal note — staff only
+            Internal note, staff only
           </p>
         ) : null}
         <p className="whitespace-pre-wrap">{body}</p>

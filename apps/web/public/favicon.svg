@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Campus Resolve">
+  <rect width="64" height="64" rx="14" fill="#2f63c0" />
+  <path d="M32 16 8 27l24 11 20-9.2V43h4V27L32 16Z" fill="#ffffff" />
+  <path d="M18 35v9c0 4 6.3 7 14 7s14-3 14-7v-9l-14 6.4L18 35Z" fill="#ffffff" opacity="0.86" />
+</svg>
