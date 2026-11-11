@@ -266,3 +266,103 @@
 2026-11-10 03:50:36.287 GMT [66167] LOG:  checkpoint complete: wrote 11 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=1.112 s, sync=0.001 s, total=1.114 s; sync files=12, longest=0.001 s, average=0.001 s; distance=35 kB, estimate=16668 kB; lsn=0/14325890, redo lsn=0/14325838
 2026-11-10 21:37:28.612 GMT [66167] LOG:  checkpoint starting: time
 2026-11-10 21:37:29.236 GMT [66167] LOG:  checkpoint complete: wrote 6 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.612 s, sync=0.004 s, total=0.624 s; sync files=7, longest=0.001 s, average=0.001 s; distance=18 kB, estimate=15003 kB; lsn=0/1432A440, redo lsn=0/1432A3E8
+2026-11-11 00:10:47.085 GMT [66167] LOG:  checkpoint starting: immediate force wait
+2026-11-11 00:10:47.090 GMT [66167] LOG:  checkpoint complete: wrote 3 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.006 s; sync files=4, longest=0.001 s, average=0.001 s; distance=5337 kB, estimate=14036 kB; lsn=0/14860A80, redo lsn=0/14860A28
+2026-11-11 00:10:47.838 GMT [66167] LOG:  checkpoint starting: immediate force wait
+2026-11-11 00:10:47.842 GMT [66167] LOG:  checkpoint complete: wrote 4 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.004 s; sync files=5, longest=0.001 s, average=0.001 s; distance=5345 kB, estimate=13167 kB; lsn=0/14D99258, redo lsn=0/14D99200
+2026-11-11 00:11:05.740 GMT [66167] LOG:  checkpoint starting: immediate force wait
+2026-11-11 00:11:05.744 GMT [66167] LOG:  checkpoint complete: wrote 3 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.001 s, sync=0.001 s, total=0.005 s; sync files=4, longest=0.001 s, average=0.001 s; distance=5338 kB, estimate=12384 kB; lsn=0/152CFB40, redo lsn=0/152CFAE8
+2026-11-11 00:11:06.311 GMT [26261] ERROR:  there is no unique or exclusion constraint matching the ON CONFLICT specification
+2026-11-11 00:11:06.311 GMT [26261] STATEMENT:  -- CreateEnum
+	CREATE TYPE "SemesterTerm" AS ENUM ('FIRST', 'SECOND', 'SUMMER');
+	
+	-- AlterTable
+	ALTER TABLE "tickets" ADD COLUMN     "academicPeriodId" UUID;
+	
+	-- CreateTable
+	CREATE TABLE "academic_periods" (
+	    "id" UUID NOT NULL,
+	    "academicYear" VARCHAR(16) NOT NULL,
+	    "semester" "SemesterTerm" NOT NULL,
+	    "startsAt" TIMESTAMP(3) NOT NULL,
+	    "endsAt" TIMESTAMP(3) NOT NULL,
+	    "isCurrent" BOOLEAN NOT NULL DEFAULT false,
+	    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	    "updatedAt" TIMESTAMP(3) NOT NULL,
+	
+	    CONSTRAINT "academic_periods_pkey" PRIMARY KEY ("id")
+	);
+	
+	-- CreateIndex
+	CREATE INDEX "academic_periods_isCurrent_idx" ON "academic_periods"("isCurrent");
+	
+	-- Seed the first period so existing reports are never left unattributed.
+	INSERT INTO "academic_periods" ("id", "academicYear", "semester", "startsAt", "endsAt", "isCurrent", "createdAt", "updatedAt")
+	VALUES ('00000000-0000-4000-8000-000000000001', '2026/2027', 'FIRST', '2026-08-01', '2026-12-31', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	ON CONFLICT ("academicYear", "semester") DO NOTHING;
+	
+	-- CreateIndex
+	CREATE UNIQUE INDEX "academic_periods_academicYear_semester_key" ON "academic_periods"("academicYear", "semester");
+	
+	-- CreateIndex
+	CREATE INDEX "tickets_academicPeriodId_idx" ON "tickets"("academicPeriodId");
+	
+	-- AddForeignKey
+	ALTER TABLE "tickets" ADD CONSTRAINT "tickets_academicPeriodId_fkey" FOREIGN KEY ("academicPeriodId") REFERENCES "academic_periods"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+	
+	-- Backfill existing reports into the current period.
+	UPDATE "tickets"
+	SET "academicPeriodId" = (
+	  SELECT "id" FROM "academic_periods" WHERE "isCurrent" = true ORDER BY "startsAt" DESC LIMIT 1
+	)
+	WHERE "academicPeriodId" IS NULL;
+	
+2026-11-11 00:11:06.314 GMT [66167] LOG:  checkpoint starting: immediate force wait
+2026-11-11 00:11:06.318 GMT [66167] LOG:  checkpoint complete: wrote 3 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.004 s; sync files=4, longest=0.001 s, average=0.001 s; distance=5363 kB, estimate=11682 kB; lsn=0/1580C8B0, redo lsn=0/1580C858
+2026-11-11 00:11:21.851 GMT [66167] LOG:  checkpoint starting: immediate force wait
+2026-11-11 00:11:21.855 GMT [66167] LOG:  checkpoint complete: wrote 3 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.002 s, total=0.004 s; sync files=4, longest=0.001 s, average=0.001 s; distance=5338 kB, estimate=11048 kB; lsn=0/15D43380, redo lsn=0/15D43328
+2026-11-11 00:11:22.310 GMT [66167] LOG:  checkpoint starting: immediate force wait
+2026-11-11 00:11:22.313 GMT [66167] LOG:  checkpoint complete: wrote 3 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.001 s, sync=0.001 s, total=0.003 s; sync files=4, longest=0.001 s, average=0.001 s; distance=5375 kB, estimate=10480 kB; lsn=0/16283118, redo lsn=0/162830C0
+2026-11-11 00:11:22.674 GMT [66167] LOG:  checkpoint starting: immediate force wait
+2026-11-11 00:11:22.689 GMT [66167] LOG:  checkpoint complete: wrote 78 buffers (0.5%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.010 s, total=0.015 s; sync files=55, longest=0.002 s, average=0.001 s; distance=5770 kB, estimate=10009 kB; lsn=0/16825B88, redo lsn=0/16825B30
+2026-11-11 00:15:55.838 GMT [28720] ERROR:  duplicate key value violates unique constraint "departments_code_key"
+2026-11-11 00:15:55.838 GMT [28720] DETAIL:  Key (code)=(REG) already exists.
+2026-11-11 00:15:55.838 GMT [28720] STATEMENT:  INSERT INTO "public"."departments" ("id","name","code","description","contactEmail","isActive","isFallbackQueue","sortOrder","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT ("name") DO UPDATE SET "description" = $11, "isFallbackQueue" = $12, "sortOrder" = $13, "updatedAt" = $14 WHERE ("public"."departments"."name" = $15 AND 1=1) RETURNING "public"."departments"."id", "public"."departments"."name", "public"."departments"."code", "public"."departments"."description", "public"."departments"."contactEmail", "public"."departments"."isActive", "public"."departments"."isFallbackQueue", "public"."departments"."sortOrder", "public"."departments"."createdAt", "public"."departments"."updatedAt"
+2026-11-11 00:16:00.912 GMT [28779] ERROR:  duplicate key value violates unique constraint "departments_code_key"
+2026-11-11 00:16:00.912 GMT [28779] DETAIL:  Key (code)=(REG) already exists.
+2026-11-11 00:16:00.912 GMT [28779] STATEMENT:  INSERT INTO "public"."departments" ("id","name","code","description","contactEmail","isActive","isFallbackQueue","sortOrder","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT ("name") DO UPDATE SET "description" = $11, "isFallbackQueue" = $12, "sortOrder" = $13, "updatedAt" = $14 WHERE ("public"."departments"."name" = $15 AND 1=1) RETURNING "public"."departments"."id", "public"."departments"."name", "public"."departments"."code", "public"."departments"."description", "public"."departments"."contactEmail", "public"."departments"."isActive", "public"."departments"."isFallbackQueue", "public"."departments"."sortOrder", "public"."departments"."createdAt", "public"."departments"."updatedAt"
+2026-11-11 00:16:22.692 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 00:16:30.068 GMT [66167] LOG:  checkpoint complete: wrote 73 buffers (0.4%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=7.371 s, sync=0.005 s, total=7.377 s; sync files=41, longest=0.001 s, average=0.001 s; distance=497 kB, estimate=9058 kB; lsn=0/168A2060, redo lsn=0/168A1FF0
+2026-11-11 00:16:50.811 GMT [29194] ERROR:  unrecognized configuration parameter "lc_collate"
+2026-11-11 00:16:50.811 GMT [29194] STATEMENT:  select current_setting('lc_collate') lc, current_setting('server_version') v
+2026-11-11 00:17:20.064 GMT [29553] ERROR:  table "_prisma_migrations" does not exist
+2026-11-11 00:17:20.064 GMT [29553] STATEMENT:  DROP TABLE _prisma_migrations
+2026-11-11 00:21:22.975 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 00:22:15.531 GMT [66167] LOG:  checkpoint complete: wrote 492 buffers (3.0%), wrote 10 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=49.483 s, sync=1.225 s, total=52.556 s; sync files=14397, longest=0.002 s, average=0.001 s; distance=19004 kB, estimate=19004 kB; lsn=0/17B3BAB0, redo lsn=0/17B31130
+2026-11-11 00:26:22.538 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 00:26:25.262 GMT [66167] LOG:  checkpoint complete: wrote 27 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.721 s, sync=0.003 s, total=2.725 s; sync files=21, longest=0.001 s, average=0.001 s; distance=117 kB, estimate=17115 kB; lsn=0/17B4E720, redo lsn=0/17B4E6C8
+2026-11-11 00:31:22.268 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 00:31:22.878 GMT [66167] LOG:  checkpoint complete: wrote 6 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.606 s, sync=0.002 s, total=0.610 s; sync files=7, longest=0.001 s, average=0.001 s; distance=23 kB, estimate=15406 kB; lsn=0/17B545C0, redo lsn=0/17B54568
+2026-11-11 00:36:22.799 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 00:36:23.511 GMT [66167] LOG:  checkpoint complete: wrote 7 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.707 s, sync=0.003 s, total=0.712 s; sync files=7, longest=0.001 s, average=0.001 s; distance=31 kB, estimate=13868 kB; lsn=0/17B5C4E0, redo lsn=0/17B5C488
+2026-11-11 00:41:22.515 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 00:41:26.197 GMT [66167] LOG:  checkpoint complete: wrote 36 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=3.628 s, sync=0.053 s, total=3.683 s; sync files=36, longest=0.022 s, average=0.002 s; distance=94 kB, estimate=12491 kB; lsn=0/17B73DE0, redo lsn=0/17B73D50
+2026-11-11 00:43:45.513 GMT [41594] ERROR:  table "_prisma_migrations" does not exist
+2026-11-11 00:43:45.513 GMT [41594] STATEMENT:  DROP TABLE _prisma_migrations
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "notification_attempts" --- lock not available
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "user_roles" --- lock not available
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "role_permissions" --- lock not available
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "permissions" --- lock not available
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "roles" --- lock not available
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "users" --- lock not available
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "departments" --- lock not available
+2026-11-11 00:44:36.188 GMT [41949] LOG:  skipping analyze of "jobs" --- lock not available
+2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "sessions" --- lock not available
+2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "ticket_history" --- lock not available
+2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "tickets" --- lock not available
+2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "department_memberships" --- lock not available
+2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "notifications" --- lock not available
+2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "department_service_targets" --- lock not available
+2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "categories" --- lock not available
+2026-11-11 00:46:22.831 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 00:47:07.089 GMT [66167] LOG:  checkpoint complete: wrote 418 buffers (2.6%), wrote 11 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=42.107 s, sync=0.956 s, total=44.259 s; sync files=14366, longest=0.043 s, average=0.001 s; distance=18641 kB, estimate=18641 kB; lsn=0/18DA8238, redo lsn=0/18DA81A8
