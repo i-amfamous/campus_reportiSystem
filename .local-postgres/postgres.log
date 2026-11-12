@@ -366,3 +366,7 @@
 2026-11-11 00:44:36.189 GMT [41949] LOG:  skipping analyze of "categories" --- lock not available
 2026-11-11 00:46:22.831 GMT [66167] LOG:  checkpoint starting: time
 2026-11-11 00:47:07.089 GMT [66167] LOG:  checkpoint complete: wrote 418 buffers (2.6%), wrote 11 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=42.107 s, sync=0.956 s, total=44.259 s; sync files=14366, longest=0.043 s, average=0.001 s; distance=18641 kB, estimate=18641 kB; lsn=0/18DA8238, redo lsn=0/18DA81A8
+2026-11-11 13:56:48.140 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 13:56:48.247 GMT [66167] LOG:  checkpoint complete: wrote 1 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.103 s, sync=0.002 s, total=0.108 s; sync files=2, longest=0.001 s, average=0.001 s; distance=7 kB, estimate=16777 kB; lsn=0/18DA9FE8, redo lsn=0/18DA9F90
+2026-11-11 14:01:48.059 GMT [66167] LOG:  checkpoint starting: time
+2026-11-11 14:01:48.670 GMT [66167] LOG:  checkpoint complete: wrote 6 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.607 s, sync=0.002 s, total=0.612 s; sync files=7, longest=0.001 s, average=0.001 s; distance=23 kB, estimate=15102 kB; lsn=0/18DAFCC0, redo lsn=0/18DAFC68
