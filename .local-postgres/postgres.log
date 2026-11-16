@@ -370,3 +370,42 @@
 2026-11-11 13:56:48.247 GMT [66167] LOG:  checkpoint complete: wrote 1 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.103 s, sync=0.002 s, total=0.108 s; sync files=2, longest=0.001 s, average=0.001 s; distance=7 kB, estimate=16777 kB; lsn=0/18DA9FE8, redo lsn=0/18DA9F90
 2026-11-11 14:01:48.059 GMT [66167] LOG:  checkpoint starting: time
 2026-11-11 14:01:48.670 GMT [66167] LOG:  checkpoint complete: wrote 6 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.607 s, sync=0.002 s, total=0.612 s; sync files=7, longest=0.001 s, average=0.001 s; distance=23 kB, estimate=15102 kB; lsn=0/18DAFCC0, redo lsn=0/18DAFC68
+2026-11-13 03:35:42.292 GMT [66163] LOG:  received smart shutdown request
+2026-11-13 03:35:42.295 GMT [66163] LOG:  background worker "logical replication launcher" (PID 66172) exited with exit code 1
+2026-11-13 03:35:42.295 GMT [66167] LOG:  shutting down
+2026-11-13 03:35:42.296 GMT [66167] LOG:  checkpoint starting: shutdown immediate
+2026-11-13 03:35:42.299 GMT [66167] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 0 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.004 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=13592 kB; lsn=0/18DAFD70, redo lsn=0/18DAFD70
+2026-11-13 03:35:42.308 GMT [66163] LOG:  database system is shut down
+2026-11-13 12:17:09.463 GMT [16622] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-11-13 12:17:09.467 GMT [16622] LOG:  listening on IPv6 address "::1", port 5433
+2026-11-13 12:17:09.467 GMT [16622] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-11-13 12:17:09.468 GMT [16622] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-11-13 12:17:09.476 GMT [16628] LOG:  database system was shut down at 2026-11-13 03:35:42 GMT
+2026-11-13 12:17:09.485 GMT [16622] LOG:  database system is ready to accept connections
+2026-11-13 12:22:09.479 GMT [16626] LOG:  checkpoint starting: time
+2026-11-13 12:22:09.486 GMT [16626] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.008 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/18DAFE78, redo lsn=0/18DAFE20
+2026-11-13 12:42:09.498 GMT [16626] LOG:  checkpoint starting: time
+2026-11-13 12:42:10.813 GMT [16626] LOG:  checkpoint complete: wrote 13 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=1.311 s, sync=0.002 s, total=1.315 s; sync files=11, longest=0.001 s, average=0.001 s; distance=137 kB, estimate=137 kB; lsn=0/18DD2470, redo lsn=0/18DD2418
+2026-11-13 13:10:28.825 GMT [16622] LOG:  received fast shutdown request
+2026-11-13 13:10:28.825 GMT [16622] LOG:  aborting any active transactions
+2026-11-13 13:10:28.827 GMT [16622] LOG:  background worker "logical replication launcher" (PID 16632) exited with exit code 1
+2026-11-13 13:10:28.828 GMT [16626] LOG:  shutting down
+2026-11-13 13:10:28.828 GMT [16626] LOG:  checkpoint starting: shutdown immediate
+2026-11-13 13:10:28.863 GMT [16626] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 0 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.009 s, sync=0.001 s, total=0.035 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=123 kB; lsn=0/18DD2520, redo lsn=0/18DD2520
+2026-11-13 13:10:28.871 GMT [16622] LOG:  database system is shut down
+2026-11-13 13:12:58.074 GMT [34197] LOG:  starting PostgreSQL 18.4 on x86_64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit
+2026-11-13 13:12:58.077 GMT [34197] LOG:  listening on IPv6 address "::1", port 5433
+2026-11-13 13:12:58.077 GMT [34197] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-11-13 13:12:58.077 GMT [34197] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-11-13 13:12:58.084 GMT [34203] LOG:  database system was shut down at 2026-11-13 13:10:28 GMT
+2026-11-13 13:12:58.089 GMT [34197] LOG:  database system is ready to accept connections
+2026-11-13 13:17:58.086 GMT [34201] LOG:  checkpoint starting: time
+2026-11-13 13:17:58.902 GMT [34201] LOG:  checkpoint complete: wrote 8 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.808 s, sync=0.004 s, total=0.816 s; sync files=10, longest=0.001 s, average=0.001 s; distance=35 kB, estimate=35 kB; lsn=0/18DDB250, redo lsn=0/18DDB1F8
+2026-11-13 13:22:58.905 GMT [34201] LOG:  checkpoint starting: time
+2026-11-13 13:23:01.683 GMT [34201] LOG:  checkpoint complete: wrote 27 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.771 s, sync=0.005 s, total=2.778 s; sync files=27, longest=0.001 s, average=0.001 s; distance=90 kB, estimate=90 kB; lsn=0/18DF1BC8, redo lsn=0/18DF1B38
+2026-11-13 18:03:51.581 GMT [34197] LOG:  received smart shutdown request
+2026-11-13 18:03:51.585 GMT [34197] LOG:  background worker "logical replication launcher" (PID 34206) exited with exit code 1
+2026-11-13 18:03:51.585 GMT [34201] LOG:  shutting down
+2026-11-13 18:03:51.587 GMT [34201] LOG:  checkpoint starting: shutdown immediate
+2026-11-13 18:03:51.602 GMT [34201] LOG:  checkpoint complete: wrote 41 buffers (0.3%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.007 s, sync=0.004 s, total=0.017 s; sync files=36, longest=0.001 s, average=0.001 s; distance=104 kB, estimate=104 kB; lsn=0/18E0BE18, redo lsn=0/18E0BE18
+2026-11-13 18:03:51.610 GMT [34197] LOG:  database system is shut down
