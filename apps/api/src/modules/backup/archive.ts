@@ -117,7 +117,6 @@ function reviveBigInts(value: unknown): unknown {
   return output;
 }
 
-/** Parses a JSON Lines payload back into rows. */
 export function parseRows(payload: string): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = [];
   for (const line of payload.split('\n')) {

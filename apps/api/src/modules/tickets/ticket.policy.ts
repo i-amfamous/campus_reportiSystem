@@ -11,22 +11,18 @@ export interface TicketResource {
   status: TicketStatus;
 }
 
-/** The ticket belongs to this student. */
 export function isOwner(auth: AuthContext, ticket: TicketResource): boolean {
   return auth.userId === ticket.studentId;
 }
 
-/** The user is staff attached to the ticket's department. */
 export function isDepartmentStaff(auth: AuthContext, ticket: TicketResource): boolean {
   return auth.roles.some((role) => isStaffRole(role)) && isInDepartment(auth, ticket.departmentId);
 }
 
-/** The user is the officer currently responsible for the ticket. */
 export function isCurrentAssignee(auth: AuthContext, ticket: TicketResource): boolean {
   return ticket.assignedToId !== null && ticket.assignedToId === auth.userId;
 }
 
-/** Platform administrator with unrestricted ticket access. */
 export function isGlobalAdmin(auth: AuthContext): boolean {
   return auth.roles.some((role) => isAdminRole(role));
 }
@@ -42,7 +38,6 @@ export function canViewTicket(auth: AuthContext, ticket: TicketResource): boolea
   return auth.permissions.has('ticket:read:any');
 }
 
-/** Post a student-visible reply. */
 export function canReply(auth: AuthContext, ticket: TicketResource): boolean {
   if (isOwner(auth, ticket)) return true;
   if (isGlobalAdmin(auth)) return true;
@@ -57,7 +52,6 @@ export function canAddInternalNote(auth: AuthContext, ticket: TicketResource): b
   return isDepartmentStaff(auth, ticket);
 }
 
-/** Change the status of a ticket. */
 export function canChangeStatus(auth: AuthContext, ticket: TicketResource): boolean {
   if (isGlobalAdmin(auth)) return true;
   return isCurrentAssignee(auth, ticket) || isDepartmentStaff(auth, ticket);
@@ -83,7 +77,6 @@ export function canAssign(
   return ticket.assignedToId === null || ticket.assignedToId === auth.userId;
 }
 
-/** Reassign work that already has an owner. */
 export function canReassign(auth: AuthContext, ticket: TicketResource): boolean {
   if (isGlobalAdmin(auth)) return true;
   if (headsDepartment(auth, ticket.departmentId)) return true;
@@ -105,7 +98,6 @@ export function canEscalate(auth: AuthContext, ticket: TicketResource): boolean 
   return auth.permissions.has('ticket:escalate:request');
 }
 
-/** Reopen a resolved ticket. */
 export function canReopen(auth: AuthContext, ticket: TicketResource): boolean {
   if (isGlobalAdmin(auth)) return true;
   if (auth.permissions.has('ticket:reopen:manage') && isDepartmentStaff(auth, ticket)) return true;
@@ -119,7 +111,6 @@ export function canWithdraw(auth: AuthContext, ticket: TicketResource): boolean 
   return ['SUBMITTED', 'AWAITING_ASSIGNMENT'].includes(ticket.status);
 }
 
-/** Upload supporting evidence. */
 export function canUploadAttachment(auth: AuthContext, ticket: TicketResource): boolean {
   if (isOwner(auth, ticket)) return true;
   if (isGlobalAdmin(auth)) return true;
@@ -131,12 +122,10 @@ export function canDownloadAttachment(auth: AuthContext, ticket: TicketResource)
   return canViewTicket(auth, ticket);
 }
 
-/** Rate the support received. */
 export function canGiveFeedback(auth: AuthContext, ticket: TicketResource): boolean {
   return isOwner(auth, ticket) && ['RESOLVED', 'CLOSED'].includes(ticket.status);
 }
 
-/** Statuses a student may still act on. */
 export function studentMayReopen(ticket: TicketResource): boolean {
   return ticket.status === 'RESOLVED';
 }

@@ -50,10 +50,6 @@ const RoleDashboardCharts = lazy(() =>
   import('../admin/charts').then((module) => ({ default: module.RoleDashboardCharts })),
 );
 
-/* -------------------------------------------------------------------------- */
-/* Student dashboard                                                          */
-/* -------------------------------------------------------------------------- */
-
 export function StudentDashboardPage() {
   const auth = useAuth();
   const dashboard = useRoleDashboard();
@@ -288,10 +284,6 @@ export function StudentDashboardPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Ticket list                                                                */
-/* -------------------------------------------------------------------------- */
-
 export function TicketListPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
@@ -420,10 +412,6 @@ export function TicketListPage() {
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* New report                                                                 */
-/* -------------------------------------------------------------------------- */
 
 export function NewTicketPage() {
   const toast = useToast();

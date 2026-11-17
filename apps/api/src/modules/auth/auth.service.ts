@@ -204,7 +204,6 @@ export interface LoginResult {
   expiresAt: Date;
 }
 
-/** Authenticates a user and creates a session. */
 export async function login(
   email: string,
   password: string,
@@ -326,7 +325,6 @@ export async function resetPassword(token: string, newPassword: string): Promise
   });
 }
 
-/** Updates the signed-in person's editable profile fields. */
 export async function updateProfile(auth: AuthContext, input: UpdateProfileInput) {
   const data: {
     fullName?: string;
@@ -379,7 +377,6 @@ export async function updateProfile(auth: AuthContext, input: UpdateProfileInput
   }
 }
 
-/** Changes the password of the signed-in user. */
 export async function changePassword(
   userId: string,
   currentPassword: string,

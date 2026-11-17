@@ -122,7 +122,6 @@ export default function App() {
   );
 }
 
-/** Sends the caller to the area that matches their role. */
 function HomeRedirect() {
   const auth = useAuth();
   if (auth.isLoading) return <LoadingState label="Checking your session…" />;

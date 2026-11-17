@@ -17,10 +17,6 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-/* -------------------------------------------------------------------------- */
-/* Button                                                                     */
-/* -------------------------------------------------------------------------- */
-
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
@@ -81,10 +77,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Form controls                                                              */
-/* -------------------------------------------------------------------------- */
-
 const CONTROL =
   'block w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-slate-50 disabled:text-slate-500';
 
@@ -111,7 +103,6 @@ export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<H
   },
 );
 
-/** Password input with a show/hide toggle. */
 export const PasswordField = forwardRef<
   HTMLInputElement,
   React.InputHTMLAttributes<HTMLInputElement>
@@ -168,10 +159,6 @@ export function FormField({
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Layout primitives                                                          */
-/* -------------------------------------------------------------------------- */
 
 export function Card({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
@@ -263,10 +250,6 @@ export function StatCard({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Badges                                                                     */
-/* -------------------------------------------------------------------------- */
-
 const STATUS_STYLES: Record<TicketStatus, string> = {
   SUBMITTED: 'bg-slate-100 text-slate-700 ring-slate-200',
   AWAITING_ASSIGNMENT: 'bg-amber-50 text-amber-800 ring-amber-200',
@@ -343,10 +326,6 @@ export function Badge({
     </span>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* States                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export function Spinner({ className }: { className?: string }) {
   return <Loader2 className={cn('h-5 w-5 animate-spin text-slate-400', className)} aria-hidden />;
@@ -436,10 +415,6 @@ export function Callout({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Table                                                                      */
-/* -------------------------------------------------------------------------- */
-
 export function Table({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div className="overflow-x-auto">
@@ -475,10 +450,6 @@ export function Tr({ children, className }: { children: React.ReactNode; classNa
     </tr>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Pagination                                                                 */
-/* -------------------------------------------------------------------------- */
 
 export function Pagination({
   page,
@@ -522,10 +493,6 @@ export function Pagination({
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Dialog                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export function Dialog({
   open,
@@ -586,10 +553,6 @@ export function Dialog({
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Toast                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export interface ToastMessage {
   id: number;

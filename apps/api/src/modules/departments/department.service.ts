@@ -534,7 +534,7 @@ export async function getReportTrend(auth: AuthContext, options: ReportTrendOpti
   return { trend, granularity, from: start.toISOString(), to: new Date(end.getTime() - 1).toISOString() };
 }
 
-/** Staff workload view for a department (PRD §13.1). */export async function getStaffWorkload(auth: AuthContext, departmentId: string) {
+export async function getStaffWorkload(auth: AuthContext, departmentId: string) {
   assertDepartmentScope(auth, departmentId);
 
   const memberships = await prisma.departmentMembership.findMany({

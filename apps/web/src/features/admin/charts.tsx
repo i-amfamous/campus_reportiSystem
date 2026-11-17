@@ -20,10 +20,6 @@ import { useTheme } from '../../lib/theme';
 import { useReportTrend } from '../tickets/api';
 import type { AcademicPeriod, RoleDashboard, SystemDashboard } from '../../types';
 
-/* -------------------------------------------------------------------------- */
-/* Palette and theme                                                          */
-/* -------------------------------------------------------------------------- */
-
 const STATUS_COLORS: Record<TicketStatus, string> = {
   SUBMITTED: '#94a3b8',
   AWAITING_ASSIGNMENT: '#f59e0b',
@@ -132,10 +128,6 @@ const TREND_PRESETS = [
   { value: '14d', label: '14 days', hours: 24 * 14 },
   { value: '30d', label: '30 days', hours: 24 * 30 },
 ] as const;
-
-/* -------------------------------------------------------------------------- */
-/* Report volume over time                                                    */
-/* -------------------------------------------------------------------------- */
 
 export function ReportTrendChart({
   trend: fallback,
@@ -328,10 +320,6 @@ export function ReportTrendChart({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Status mix                                                                 */
-/* -------------------------------------------------------------------------- */
-
 export function StatusMixChart({
   data,
   total,
@@ -399,10 +387,6 @@ export function StatusMixChart({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Priority mix                                                               */
-/* -------------------------------------------------------------------------- */
-
 const PRIORITY_ORDER: TicketPriority[] = ['URGENT', 'HIGH', 'NORMAL', 'LOW'];
 
 export function PriorityMixChart({
@@ -461,10 +445,6 @@ export function PriorityMixChart({
     </ChartShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Department workload                                                        */
-/* -------------------------------------------------------------------------- */
 
 export function DepartmentWorkloadChart({
   departments,
@@ -540,10 +520,6 @@ export function DepartmentWorkloadChart({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Dashboard composition                                                      */
-/* -------------------------------------------------------------------------- */
-
 /**
  * The chart cards live in their own module so the charting library is only
  * downloaded when an administrator opens the operations dashboard.
@@ -579,10 +555,6 @@ export function DashboardCharts({
     </>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Role-scoped dashboards                                                     */
-/* -------------------------------------------------------------------------- */
 
 /** A fixed two-week activity chart for the signed-in person's own scope. */
 export function RoleTrendChart({

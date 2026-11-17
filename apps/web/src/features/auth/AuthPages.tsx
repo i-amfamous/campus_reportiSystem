@@ -46,10 +46,6 @@ import {
   useToast,
 } from '../../components/ui';
 
-/* -------------------------------------------------------------------------- */
-/* Layout primitives                                                          */
-/* -------------------------------------------------------------------------- */
-
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 sm:px-6 lg:px-8 py-4 sm:py-0">
@@ -89,10 +85,6 @@ function AuthCard({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* OTP digit input                                                            */
-/* -------------------------------------------------------------------------- */
-
 function OtpDigit({ value, index, onChange, disabled }: { value: string; index: number; onChange: (index: number, value: string) => void; disabled?: boolean }) {
   return (
     <div className="flex items-center justify-center">
@@ -118,10 +110,6 @@ function OtpDigit({ value, index, onChange, disabled }: { value: string; index: 
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Login                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export function LoginPage() {
   const auth = useAuth();
@@ -225,10 +213,6 @@ export function LoginPage() {
     </AuthShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Register                                                                   */
-/* -------------------------------------------------------------------------- */
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -346,10 +330,6 @@ export function RegisterPage() {
     </AuthShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* OTP verification                                                           */
-/* -------------------------------------------------------------------------- */
 
 export function VerifyOtpPage() {
   const [params] = useSearchParams();
@@ -549,10 +529,6 @@ export function VerifyOtpPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Verify email (token link - kept for backward compatibility)                */
-/* -------------------------------------------------------------------------- */
-
 export function VerifyEmailPage() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
@@ -632,10 +608,6 @@ export function VerifyEmailPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Staff invitation                                                           */
-/* -------------------------------------------------------------------------- */
-
 export function AcceptInvitationPage() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
@@ -698,10 +670,6 @@ export function AcceptInvitationPage() {
     </AuthShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Password reset                                                             */
-/* -------------------------------------------------------------------------- */
 
 export function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
@@ -781,10 +749,6 @@ export function ResetPasswordPage() {
     </AuthShell>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Profile                                                                    */
-/* -------------------------------------------------------------------------- */
 
 const CONTACT_OPTIONS = [
   { value: 'EMAIL', label: 'Email' },

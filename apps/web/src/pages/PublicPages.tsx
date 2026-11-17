@@ -218,9 +218,6 @@ export function HomePage() {
 
   return (
     <div className="overflow-x-clip bg-[#fafafa] dark:bg-slate-950">
-      {/* ------------------------------------------------------------------ */}
-      {/* Hero                                                               */}
-      {/* ------------------------------------------------------------------ */}
       <section className="relative isolate overflow-hidden">
         <div
           aria-hidden
@@ -302,9 +299,6 @@ export function HomePage() {
 
       <FoldedProofSection />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Role showcase                                                      */}
-      {/* ------------------------------------------------------------------ */}
       <section
         id="roles"
         className="scroll-mt-24 border-y border-slate-900/5 bg-white dark:border-white/5 dark:bg-slate-900/40"
@@ -386,9 +380,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Service band                                                       */}
-      {/* ------------------------------------------------------------------ */}
       <section id="service" className="scroll-mt-24 bg-[#0a1220] text-white">
         <div className="mx-auto max-w-[1140px] px-5 py-24 sm:px-8 lg:py-28">
           <div className="grid gap-14 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
@@ -431,9 +422,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Process                                                            */}
-      {/* ------------------------------------------------------------------ */}
       <section id="how-it-works" className="scroll-mt-24">
         <div className="mx-auto max-w-[1140px] px-5 py-24 sm:px-8 lg:py-32">
           <div className="max-w-3xl">
@@ -486,9 +474,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Testimonial carousel                                               */}
-      {/* ------------------------------------------------------------------ */}
       <section className="border-y border-slate-900/5 bg-white dark:border-white/5 dark:bg-slate-900/40">
         <div className="mx-auto grid max-w-[1140px] gap-10 px-5 py-24 sm:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:py-28">
           <div>
@@ -559,9 +544,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Capabilities strip                                                 */}
-      {/* ------------------------------------------------------------------ */}
       <section>
         <div className="mx-auto max-w-[1140px] px-5 py-16 sm:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -583,9 +565,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* FAQ                                                                */}
-      {/* ------------------------------------------------------------------ */}
       <section
         id="faq"
         className="scroll-mt-24 border-y border-slate-900/5 bg-white dark:border-white/5 dark:bg-slate-900/40"
@@ -633,9 +612,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Final call to action                                               */}
-      {/* ------------------------------------------------------------------ */}
       <section className="mx-auto max-w-[1140px] px-5 py-24 sm:px-8 lg:py-28">
         <div className="relative isolate overflow-hidden rounded-[1.75rem] bg-[linear-gradient(125deg,#1f3a6e_0%,#2a56a5_40%,#2f63c0_68%,#1f6f78_100%)] px-6 py-16 text-center shadow-lift sm:px-14 lg:py-20">
           <div
@@ -664,10 +640,6 @@ export function HomePage() {
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Homepage previews                                                          */
-/* -------------------------------------------------------------------------- */
 
 function HeroWorkspace() {
   return (

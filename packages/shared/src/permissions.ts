@@ -16,7 +16,6 @@ export const ROLE_LABELS: Record<RoleName, string> = {
 };
 
 export const PERMISSIONS = [
-  // Tickets
   'ticket:create',
   'ticket:read:own',
   'ticket:read:department',
@@ -34,19 +33,15 @@ export const PERMISSIONS = [
   'ticket:withdraw',
   'ticket:feedback:create',
   'ticket:feedback:read',
-  // Attachments
   'attachment:upload',
   'attachment:download',
-  // Reference data
   'department:read',
   'department:manage',
   'category:read',
   'category:manage',
-  // People
   'user:manage',
   'user:manage:department',
   'user:role:assign',
-  // Platform
   'settings:manage',
   'settings:institution',
   'analytics:department',
@@ -56,7 +51,6 @@ export const PERMISSIONS = [
   'job:manage',
   'security:read',
   'retention:manage',
-  // Platform backup
   'system:backup',
   'system:restore',
 ] as const;

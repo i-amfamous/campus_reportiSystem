@@ -77,10 +77,6 @@ const DashboardCharts = lazy(() =>
   import('./charts').then((module) => ({ default: module.DashboardCharts })),
 );
 
-/* -------------------------------------------------------------------------- */
-/* Operations dashboard                                                       */
-/* -------------------------------------------------------------------------- */
-
 export function AdminDashboardPage() {
   const auth = useAuth();
   const periods = useAcademicPeriods();
@@ -673,10 +669,6 @@ function RetryFailedNotifications({ className }: { className?: string } = {}) {
     </Button>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Users                                                                      */
-/* -------------------------------------------------------------------------- */
 
 export function AdminUsersPage() {
   const auth = useAuth();
@@ -1346,10 +1338,6 @@ function InviteStaffDialog({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Departments                                                                */
-/* -------------------------------------------------------------------------- */
-
 export function AdminDepartmentsPage() {
   const toast = useToast();
   const departments = useDepartments();
@@ -1645,10 +1633,6 @@ function ServiceTargetDialog({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Categories                                                                 */
-/* -------------------------------------------------------------------------- */
-
 export function AdminCategoriesPage() {
   const toast = useToast();
   const categories = useCategories();
@@ -1805,10 +1789,6 @@ export function AdminCategoriesPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Audit log                                                                  */
-/* -------------------------------------------------------------------------- */
-
 export function AdminAuditPage() {
   const [page, setPage] = useState(1);
   const [action, setAction] = useState('');
@@ -1891,10 +1871,6 @@ export function AdminAuditPage() {
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Academic periods                                                           */
-/* -------------------------------------------------------------------------- */
 
 function toDateInput(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
@@ -2215,10 +2191,6 @@ export function AdminAcademicPeriodsPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Exports                                                                    */
-/* -------------------------------------------------------------------------- */
-
 export function AdminReportsPage() {
   const toast = useToast();
   const departments = useDepartments();
@@ -2344,10 +2316,6 @@ function downloadCsv(csv: string, filename: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-
-/* -------------------------------------------------------------------------- */
-/* Settings                                                                   */
-/* -------------------------------------------------------------------------- */
 
 export function AdminSettingsPage() {
   const toast = useToast();

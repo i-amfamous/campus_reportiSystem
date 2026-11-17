@@ -21,7 +21,6 @@ import { api, apiFetch } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { errorMessage } from '../tickets/api';
 
-/** A backup archive on the server. */
 export interface BackupSummary {
   id: string;
   filename: string;

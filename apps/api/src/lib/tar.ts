@@ -13,7 +13,6 @@ const BLOCK_SIZE = 512;
 const NAME_FIELD = 100;
 const PREFIX_FIELD = 155;
 
-/** A file inside the archive. */
 export interface TarEntry {
   name: string;
   data: Buffer;

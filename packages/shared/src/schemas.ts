@@ -147,7 +147,6 @@ export const deleteAccountSchema = z.object({
 });
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
 
-/** An administrator erasing somebody else's account. */
 export const deleteUserSchema = z.object({
   reason: z.string().trim().min(5, 'Record why the account is being deleted').max(500),
   confirmation: z.literal(ACCOUNT_DELETION_CONFIRMATION, {

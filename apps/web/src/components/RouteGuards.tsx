@@ -2,7 +2,6 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { LoadingState } from './ui';
 
-/** Requires an authenticated session. */
 export function ProtectedRoute() {
   const auth = useAuth();
   const location = useLocation();
@@ -20,7 +19,6 @@ export function ProtectedRoute() {
   return <Outlet />;
 }
 
-/** Requires a verified email address. */
 export function VerifiedEmailRoute() {
   const auth = useAuth();
   const location = useLocation();
@@ -38,7 +36,6 @@ export function VerifiedEmailRoute() {
   return <Outlet />;
 }
 
-/** Requires one of the given roles. */
 export function RoleRoute({ roles }: { roles: string[] }) {
   const auth = useAuth();
   const location = useLocation();
@@ -57,7 +54,6 @@ export function RoleRoute({ roles }: { roles: string[] }) {
   return <Outlet />;
 }
 
-/** Requires a permission key. */
 export function PermissionRoute({ permission }: { permission: string }) {
   const auth = useAuth();
   const location = useLocation();

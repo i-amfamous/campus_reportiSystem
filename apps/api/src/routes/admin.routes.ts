@@ -291,10 +291,6 @@ adminRouter.post(
   },
 );
 
-/* -------------------------------------------------------------------------- */
-/* Backup and restore                                                          */
-/* -------------------------------------------------------------------------- */
-
 /** Takes a copy of the whole platform: every table and every attachment. */
 adminRouter.post('/backups', requirePermission('system:backup'), async (req, res) => {
   const backup = await backupService.createBackup({

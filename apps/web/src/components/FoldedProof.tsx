@@ -2,10 +2,6 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactElement } fr
 import { Building2, Check, Clock3, Lock, ScrollText, Timer } from 'lucide-react';
 import { cn } from './ui';
 
-/* -------------------------------------------------------------------------- */
-/* Card content                                                               */
-/* -------------------------------------------------------------------------- */
-
 function RoutingProof() {
   return (
     <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/50">
@@ -188,10 +184,6 @@ function ProofCardBody({ card }: { card: ProofCard }) {
     </article>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Scroll-driven fold                                                         */
-/* -------------------------------------------------------------------------- */
 
 const CARD_COUNT = PROOF_CARDS.length;
 const LAST_INDEX = CARD_COUNT - 1;

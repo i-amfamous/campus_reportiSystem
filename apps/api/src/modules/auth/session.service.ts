@@ -160,7 +160,6 @@ export function clearSessionCookies(res: Response): void {
   res.clearCookie(CSRF_COOKIE, { httpOnly: false, secure, sameSite: 'lax', path: '/' });
 }
 
-/** Express middleware that populates `req.auth` when a valid session exists. */
 export function attachSession(req: Request, _res: Response, next: NextFunction): void {
   const token = req.cookies?.[SESSION_COOKIE];
   if (!token) {

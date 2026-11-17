@@ -76,10 +76,8 @@ export const STATUS_TRANSITIONS: Record<TicketStatus, readonly TicketStatus[]> =
   WITHDRAWN: [],
 };
 
-/** Statuses from which no further transition is permitted. */
 export const TERMINAL_STATUSES: readonly TicketStatus[] = ['CLOSED', 'WITHDRAWN'];
 
-/** Statuses that mean an officer is expected to take the next action. */
 export const STAFF_ACTION_STATUSES: readonly TicketStatus[] = [
   'SUBMITTED',
   'AWAITING_ASSIGNMENT',
@@ -91,7 +89,6 @@ export const STAFF_ACTION_STATUSES: readonly TicketStatus[] = [
   'REOPENED',
 ];
 
-/** Statuses where the ball is in the student's court. */
 export const AWAITING_STUDENT_STATUSES: readonly TicketStatus[] = ['AWAITING_STUDENT'];
 
 /** Statuses that stop all reminder/SLA processing. */
@@ -117,11 +114,9 @@ export function isAwaitingStudent(status: TicketStatus): boolean {
   return AWAITING_STUDENT_STATUSES.includes(status);
 }
 
-/** Roles that own a ticket queue. */
 export const MESSAGE_VISIBILITIES = ['PUBLIC', 'INTERNAL'] as const;
 export type MessageVisibility = (typeof MESSAGE_VISIBILITIES)[number];
 
-/** Attachment kinds. */
 export const TICKET_SOURCE = ['STUDENT', 'TRIAGE', 'STAFF'] as const;
 export type TicketSource = (typeof TICKET_SOURCE)[number];
 

@@ -106,10 +106,6 @@ interface Scenario {
   status?: TicketStatus;
 }
 
-/* -------------------------------------------------------------------------- */
-/* 40 completed reports                                                       */
-/* -------------------------------------------------------------------------- */
-
 const DONE_SCENARIOS: Scenario[] = [
   {
     category: 'Missing Examination Results',
@@ -553,10 +549,6 @@ const DONE_SCENARIOS: Scenario[] = [
   },
 ];
 
-/* -------------------------------------------------------------------------- */
-/* 20 open reports                                                            */
-/* -------------------------------------------------------------------------- */
-
 const OPEN_SCENARIOS: Scenario[] = [
   {
     category: 'Missing Examination Results',
@@ -720,10 +712,6 @@ const OPEN_SCENARIOS: Scenario[] = [
   },
 ];
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
 function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16);
   const derived = crypto.scryptSync(password.normalize('NFKC'), salt, 64, {
@@ -781,10 +769,6 @@ interface HistorySeed {
   createdAt: Date;
   reason?: string | null;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Seed                                                                       */
-/* -------------------------------------------------------------------------- */
 
 async function seedStudents(passwordHash: string) {
   const role = await prisma.role.findUniqueOrThrow({ where: { name: 'STUDENT' } });

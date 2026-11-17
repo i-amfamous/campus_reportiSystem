@@ -326,10 +326,6 @@ export function TicketDetailPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Staff panel                                                                */
-/* -------------------------------------------------------------------------- */
-
 function StaffPanel({
   ticket,
   officers,
@@ -461,10 +457,6 @@ function StaffPanel({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Student panel                                                              */
-/* -------------------------------------------------------------------------- */
-
 function StudentPanel({
   ticket,
   run,
@@ -594,10 +586,6 @@ function StudentPanel({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Attachments                                                                */
-/* -------------------------------------------------------------------------- */
-
 function AttachmentsCard({ ticket, canUpload }: { ticket: TicketDetail; canUpload: boolean }) {
   const toast = useToast();
   const mutations = useTicketMutations(ticket.id);
@@ -671,10 +659,6 @@ function AttachmentsCard({ ticket, canUpload }: { ticket: TicketDetail; canUploa
     </Card>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Presentational helpers                                                     */
-/* -------------------------------------------------------------------------- */
 
 export function MessageBubble({
   body,

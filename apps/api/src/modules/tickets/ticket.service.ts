@@ -1270,7 +1270,6 @@ export async function acknowledgeTicket(auth: AuthContext, ticketId: string) {
   return getTicketForUser(auth, ticketId);
 }
 
-/** Changes the status of a ticket, validating the transition. */
 export async function changeStatus(
   auth: AuthContext,
   ticketId: string,
@@ -1370,7 +1369,6 @@ export async function changeStatus(
   return getTicketForUser(auth, ticketId);
 }
 
-/** Assigns or reassigns a ticket. */
 export async function assignTicket(
   auth: AuthContext,
   ticketId: string,
@@ -1829,7 +1827,6 @@ export async function escalateTicket(
   return getTicketForUser(auth, ticketId);
 }
 
-/** Records student feedback for a resolved ticket. */
 export async function submitFeedback(
   auth: AuthContext,
   ticketId: string,

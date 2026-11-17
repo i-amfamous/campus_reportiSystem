@@ -444,7 +444,6 @@ export function renderEmail(type: NotificationType, ctx: TemplateContext): Rende
       break;
 
     default: {
-      // Student-facing ticket events.
       const greeting = `Hello ${ctx.recipientName},`;
       const intro: Record<string, string> = {
         TICKET_SUBMITTED:

@@ -308,10 +308,6 @@ export function StaffDashboardPage() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Work queue                                                                 */
-/* -------------------------------------------------------------------------- */
-
 const QUEUE_SCOPES = [
   { value: 'all', label: 'All reports' },
   { value: 'open', label: 'Open reports' },
@@ -529,10 +525,6 @@ export function StaffQueuePage() {
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Department metrics                                                         */
-/* -------------------------------------------------------------------------- */
 
 export function DepartmentMetricsPage() {
   const { departmentId } = useParams<{ departmentId: string }>();

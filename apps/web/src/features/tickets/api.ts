@@ -48,7 +48,6 @@ export function ticketQueryString(filters: TicketFilters): string {
   return query ? `?${query}` : '';
 }
 
-/** The student's own reports. */
 export function useMyTickets(filters: TicketFilters) {
   return useQuery({
     queryKey: ['tickets', 'mine', filters],
@@ -229,10 +228,6 @@ export function useTicketMutations(ticketId: string | undefined) {
     uploadAttachment,
   };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Administration                                                             */
-/* -------------------------------------------------------------------------- */
 
 export function useSystemDashboard(academicPeriodId?: string) {
   return useQuery({

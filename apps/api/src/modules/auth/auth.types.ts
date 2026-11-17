@@ -44,12 +44,10 @@ export function hasRole(auth: AuthContext, role: RoleName): boolean {
   return auth.roles.includes(role);
 }
 
-/** True when the user may act inside the given department. */
 export function isInDepartment(auth: AuthContext, departmentId: string): boolean {
   return auth.departments.some((scope) => scope.departmentId === departmentId && scope.isActive);
 }
 
-/** True when the user heads the given department. */
 export function headsDepartment(auth: AuthContext, departmentId: string): boolean {
   return auth.departments.some(
     (scope) =>

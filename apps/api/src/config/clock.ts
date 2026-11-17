@@ -15,15 +15,12 @@ export const clock = {
   nowMs(): number {
     return override ?? Date.now();
   },
-  /** Move the clock to an absolute instant. */
   set(instant: Date | number | string): void {
     override = new Date(instant).getTime();
   },
-  /** Move the clock forward by a number of milliseconds. */
   advance(milliseconds: number): void {
     override = clock.nowMs() + milliseconds;
   },
-  /** Remove any override and return to the wall clock. */
   reset(): void {
     override = null;
   },

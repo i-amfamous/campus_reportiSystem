@@ -154,7 +154,6 @@ export function storageRoot(): string {
   return root;
 }
 
-/** Absolute path of the directory that holds the backup archives. */
 export function backupRoot(): string {
   const root = path.resolve(process.cwd(), getConfig().BACKUP_DIR);
   fs.mkdirSync(root, { recursive: true });

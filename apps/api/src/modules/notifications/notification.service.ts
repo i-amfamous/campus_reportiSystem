@@ -331,7 +331,6 @@ export interface OutboxEntry {
   attemptCount: number;
 }
 
-/** Extracts the action links from a rendered message. */
 function extractLinks(text: string): string[] {
   const links = new Set<string>();
   for (const match of text.matchAll(/https?:\/\/[^\s"'<>]+/g)) {

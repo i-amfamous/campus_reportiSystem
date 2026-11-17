@@ -74,7 +74,6 @@ export class Worker {
     return jobs.length;
   }
 
-  /** True while an administrator is restoring a backup. */
   private async isRestoreInProgress(): Promise<boolean> {
     try {
       const lock = await prisma.systemSetting.findUnique({ where: { key: RESTORE_LOCK_KEY } });

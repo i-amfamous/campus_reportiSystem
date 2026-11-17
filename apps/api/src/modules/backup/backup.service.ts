@@ -301,11 +301,6 @@ async function pruneOldBackups(): Promise<void> {
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Restore                                                                     */
-/* -------------------------------------------------------------------------- */
-
-/** True while a restore is in progress. */
 export async function isRestoreInProgress(): Promise<boolean> {
   const lock = await prisma.systemSetting.findUnique({ where: { key: RESTORE_LOCK_KEY } });
   const value = lock?.value as { active?: boolean } | undefined;
